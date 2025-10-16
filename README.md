@@ -9,4 +9,4 @@ YB-ESP32-S3-ETH DevBoard with Ethernet+WiFi, 4MB Flash, 2xUSB, Antenna https://e
 1-Kanal 3.3V Relais Modul mit Optokoppler (1Ch Relay Module High/Low Trigger) https://ebay.us/m/U08Ens
 
 ## Screenshots
-<img src="Screenshots/Screenshot_ui_1.png" alt="First Screenshot" width="300" />
+<img src="Screenshots/Screenshot_ui_1.png" alt="First Screenshot" width="350" />
