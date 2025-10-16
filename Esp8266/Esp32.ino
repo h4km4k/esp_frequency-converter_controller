@@ -1,8 +1,9 @@
-#include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include "webinterface.h"
+#include <WiFi.h>
+#include <WebServer.h>
 
-ESP8266WebServer server(80);
+#include "webinterface.h"  // Falls du handleRoot extern definiert hast
+
+WebServer server(80);
 
 const char* ssid = "ESP-FU-Steuerung";
 const char* password = "esp12345";
@@ -12,40 +13,41 @@ int currentPwm = 0;
 int targetPwm = 0;
 bool startFreigegeben = false;
 unsigned long lastTotmannSignal = 0;
-const unsigned long totmannTimeout = 400;  // Sicherheitsrelevant, 400ms sinnvoller Kompromiss
+const unsigned long totmannTimeout = 400;
 
 float scheibenDurchmesser = 7.5;
 
-const int pwmPin = D5;
+const int pwmPin = 18;  // D5 auf ESP32 nicht definiert, GPIO 18 als Beispiel
 const int pwmFreq = 2900;
+const int pwmResolution = 10; // 10 Bit = 0-1023
+const int pwmChannel = 0;
 const int pwmRange = 1023;
 
 const int n = 11;
 
 float fahrzeit[] = {38.28, 38.25, 44.73, 51.84, 61.45, 73.56, 94.41, 126.24, 184.87, 531.15, 3000};
-int pwmProzent[] = {100,   90,    80,    70,    60,    50,    40,    30,     20,    10,     1};
+int pwmProzent[] = {100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 1};
 
 unsigned long lastRampUpdate = 0;
 const unsigned long rampStepDelay = 2;
 
 int getPWMForFahrzeit(float zeit) {
   if (zeit <= fahrzeit[0]) return pwmProzent[0];
-  if (zeit >= fahrzeit[n-1]) return pwmProzent[n-1];
+  if (zeit >= fahrzeit[n - 1]) return pwmProzent[n - 1];
 
   for (int i = 0; i < n - 1; i++) {
-    if (zeit >= fahrzeit[i] && zeit <= fahrzeit[i+1]) {
+    if (zeit >= fahrzeit[i] && zeit <= fahrzeit[i + 1]) {
       float t1 = fahrzeit[i];
-      float t2 = fahrzeit[i+1];
+      float t2 = fahrzeit[i + 1];
       int p1 = pwmProzent[i];
-      int p2 = pwmProzent[i+1];
+      int p2 = pwmProzent[i + 1];
 
       float ratio = (zeit - t1) / (t2 - t1);
       int pwm = p1 + ratio * (p2 - p1);
-
       return pwm;
     }
   }
-  return pwmProzent[n-1];
+  return pwmProzent[n - 1];
 }
 
 void handleSet() {
@@ -67,12 +69,6 @@ void handleTotmann() {
 
 void handleStart() {
   bool recentTotmann = (millis() - lastTotmannSignal) < totmannTimeout;
-
-  // if (startFreigegeben) {
-  //   Serial.println("Start verweigert: Motor läuft bereits.");
-  //   server.send(409, "text/plain", "Motor läuft bereits");
-  //   return;
-  // }
 
   if (!recentTotmann) {
     Serial.println("Start verweigert: Totmann nicht aktiv.");
@@ -150,13 +146,14 @@ void setup() {
 
   Serial.println("AP gestartet. IP-Adresse: " + WiFi.softAPIP().toString());
 
-  analogWriteFreq(pwmFreq);
-  analogWriteRange(pwmRange);
-  pinMode(pwmPin, OUTPUT);
-  analogWrite(pwmPin, 0);
+  // PWM Setup für ESP32 (LEDC)
+  ledcSetup(pwmChannel, pwmFreq, pwmResolution);
+  ledcAttachPin(pwmPin, pwmChannel);
+  ledcWrite(pwmChannel, 0);
 
+  // Webserver-Routen
   server.on("/", []() {
-    handleRoot(server);  // Achte darauf, ob handleRoot so richtig ist
+    handleRoot(server);  // Falls in webinterface.h definiert
   });
   server.on("/set", handleSet);
   server.on("/totmann", handleTotmann);
@@ -176,22 +173,22 @@ void setup() {
 void loop() {
   server.handleClient();
 
-  // Nicht-blockierende Rampe abarbeiten
+  // Rampe
   unsigned long now = millis();
   if (currentPwm != targetPwm && (now - lastRampUpdate >= rampStepDelay)) {
     if (currentPwm < targetPwm) currentPwm++;
     else if (currentPwm > targetPwm) currentPwm--;
 
-    analogWrite(pwmPin, currentPwm);
+    ledcWrite(pwmChannel, currentPwm);
     lastRampUpdate = now;
   }
 
-  // Totmann Timeout prüfen – NOT-AUS mit sofortigem Stop
+  // Totmann prüfen
   if ((millis() - lastTotmannSignal) > totmannTimeout && startFreigegeben) {
     Serial.println("NOT-AUS: Totmann losgelassen!");
     startFreigegeben = false;
     targetPwm = 0;
     currentPwm = 0;
-    analogWrite(pwmPin, 0);
+    ledcWrite(pwmChannel, 0);
   }
 }
