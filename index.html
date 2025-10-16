@@ -41,7 +41,7 @@
     }
 
     #slider {
-      /* touch-action: manipulation; */
+      touch-action: manipulation;
     }
 
     #val {
@@ -328,11 +328,12 @@
 
     let totmannActive = false;
     let totmannTimer = null;
-    let dutyCycle = 0;
     let scheibenDurchmesser = 7.5;
     let recordingActive = false;
     let recordingStartTime = null;
     let recordingActions = [];
+    let currentDirection;
+    let currentDuty;
 
 
     function updateSpeedDisplay() {
@@ -375,6 +376,7 @@
     }
 
     window.addEventListener('load', () => {
+      // Lokale Grundwerte setzen
       fetchDutyCycle();
       updateSpeedDisplay();
 
@@ -386,7 +388,28 @@
       directionLabel.textContent = 'IUZ';
 
       loadPresets();
+
+      // 🔄 Einmaliger Server-Abgleich beim Start
+      fetch('/status')
+        .then(r => r.json())
+        .then(data => {
+          if (data.direction) {
+            currentDirection = data.direction;
+            directionToggle.checked = (data.direction === 'GUZ');
+            directionLabel.textContent = data.direction;
+          }
+          if (data.duty !== undefined) {
+            currentDuty = data.duty;
+            slider.value = currentDuty;
+            valDisplay.innerText = currentDuty;
+            updateSpeedDisplay();
+            updateZeitFromDuty(currentDuty);
+          }
+          console.log('🔄 Initialwerte vom Server übernommen:', currentDirection, currentDuty);
+        })
+        .catch(() => console.warn('⚠️ Konnte Initialwerte nicht laden.'));
     });
+
 
     slider.addEventListener('input', (e) => {
       const duty = parseInt(e.target.value);
@@ -475,7 +498,7 @@
       totmannActive = true;
       totmannBtn.classList.add('active');
       sendTotmannSignal();
-      totmannTimer = setInterval(sendTotmannSignal, 200);
+      totmannTimer = setInterval(sendTotmannSignal, 400);
     }
 
     // --- Totmann stoppen ---
@@ -487,26 +510,41 @@
         clearInterval(totmannTimer);
         totmannTimer = null;
       }
-      // kein Alert – 8266-Version war hier still
       console.log("Totmann losgelassen");
     }
 
-    // --- Maus + Touch Events ---
-    totmannBtn.addEventListener('mousedown', startTotmann);
-    totmannBtn.addEventListener('mouseup', stopTotmann);
-    totmannBtn.addEventListener('mouseleave', stopTotmann);
-    totmannBtn.addEventListener('touchstart', startTotmann);
-    totmannBtn.addEventListener('touchend', stopTotmann);
+    // // --- Maus + Touch Events ---
+    // totmannBtn.addEventListener('mousedown', startTotmann);
+    // totmannBtn.addEventListener('mouseup', stopTotmann);
+    // totmannBtn.addEventListener('mouseleave', stopTotmann);
+    // totmannBtn.addEventListener('touchstart', startTotmann);
+    // totmannBtn.addEventListener('touchend', stopTotmann);
+
+    totmannBtn.addEventListener('pointerdown', startTotmann);
+    totmannBtn.addEventListener('pointerup', stopTotmann);
+    totmannBtn.addEventListener('pointerleave', stopTotmann);
+    totmannBtn.addEventListener('pointercancel', stopTotmann);
+
+    // totmannBtn.pointerdown = startTotmann;
+    // totmannBtn.pointerup = stopTotmann;
+    // totmannBtn.pointerleave = stopTotmann;
+    // totmannBtn.pointercancel = stopTotmann;
 
 
-    // --- START-BUTTON ---
-    startBtn.addEventListener('touchstart', (e) => {
+    // --- START-BUTTON (Maus + Touch vereint) ---
+    startBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
 
-      recordingActions = [];
-      recordingStartTime = Date.now();
-      recordingActive = true;
+      if (!recordingActive) {
+        startRecording();
+      }
 
+      // Wenn Aufnahme läuft, START-Aktion ins Preset schreiben
+      if (recordingActive) {
+        recordStart();
+      }
+
+      // Start-Kommando an ESP senden
       fetch('/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -523,52 +561,81 @@
         });
     });
 
-    // --- STOP-BUTTON: Touch ---
-    stopBtn.addEventListener('touchstart', (e) => {
+
+    // --- STOP-BUTTON (Maus + Touch vereint) ---
+    stopBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      fetch('/stop', { method: 'POST' })
-        .then(() => {
-          startBtn.classList.remove('active');
-          if (recordingActive && recordingStartTime) {
-            const elapsed = Date.now() - recordingStartTime;
-            recordingActions.push({ type: 'stop', time: elapsed });
-            recordingActive = false;
-            recordingStartTime = null;
-          }
-        })
-        .catch(() => {
-          alert("Stopp fehlgeschlagen.");
-        });
+
+      // 1️⃣ Stop-Aktion ins Preset schreiben
+      recordStop();
+
+      // 2️⃣ ESP stoppen
+      fetch('/stop', { method: 'POST' }).catch(() => { });
+
+      // 3️⃣ Aufnahme beenden (aber Array behalten)
+      stopRecording();
     });
 
-    // --- STOP-BUTTON: Maus ---
-    stopBtn.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      fetch('/stop', { method: 'POST' })
-        .then(() => {
-          startBtn.classList.remove('active');
-          if (recordingActive && recordingStartTime) {
-            // 👉 Aufnahme beenden
-            const elapsed = Date.now() - recordingStartTime;
-            recordingActions.push({ type: 'stop', time: elapsed });
-            recordingActive = false;
-            recordingStartTime = null;
-          }
-        })
-        .catch(() => {
-          alert("Stopp fehlgeschlagen.");
-        });
+
+    // Tastaturbedienung
+    document.addEventListener('keydown', (e) => {
+      const tag = document.activeElement.tagName;
+      if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(tag)) return;
+
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          totmannBtn.dispatchEvent(new PointerEvent('pointerdown'));
+          break;
+
+        case 'Enter':
+          e.preventDefault();
+          startBtn.dispatchEvent(new PointerEvent('pointerdown'));
+          break;
+
+        case 'Escape':
+          e.preventDefault();
+          stopBtn.dispatchEvent(new PointerEvent('pointerdown'));
+          break;
+
+        case 's':
+          e.preventDefault();
+          slider.stepUp();
+          slider.dispatchEvent(new Event('input'));
+          break;
+
+        case 'l':
+          e.preventDefault();
+          slider.stepDown();
+          slider.dispatchEvent(new Event('input'));
+          break;
+
+        case 'd':
+          e.preventDefault();
+          directionToggle.checked = !directionToggle.checked;
+          directionToggle.dispatchEvent(new Event('change'));
+          break;
+      }
     });
 
+    document.addEventListener('keyup', (e) => {
+      if (e.key === ' ') {
+        totmannBtn.dispatchEvent(new PointerEvent('pointerup'));
+      }
+    });
+
+    // Updaten des Status (nur Anzeige)
     function updateStatus() {
       fetch('/status')
-        .then(response => response.text())
+        .then(res => res.json())
         .then(data => {
+          // Nur Status behandeln, keine Richtung oder Duty übernehmen
           statusDiv.classList.remove('status-aktiv', 'status-warte', 'status-stop');
-          if (data === "aktiv") {
+
+          if (data.status === "aktiv") {
             statusDiv.classList.add('status-aktiv');
             statusDiv.innerText = "✅ Status: AKTIV";
-          } else if (data === "warte") {
+          } else if (data.status === "warte") {
             statusDiv.classList.add('status-warte');
             statusDiv.innerText = "⏳ Status: WARTE AUF START";
           } else {
@@ -582,71 +649,27 @@
         });
     }
 
-    document.addEventListener('keydown', (e) => {
-      const tag = document.activeElement.tagName;
-      if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(tag)) return;
 
-      switch (e.key) {
-        case ' ':
-          e.preventDefault();
-          if (!totmannActive) startTotmann();
-          break;
-
-        case 'Enter':
-          e.preventDefault();
-          if (statusDiv.classList.contains('status-aktiv')) {
-            fetch('/stop', { method: 'POST' })
-              .then(() => startBtn.classList.remove('active'))
-              .catch(() => alert("Stopp fehlgeschlagen."));
-          } else {
-            fetch('/start', { method: 'POST' })
-              .then(response => {
-                if (!response.ok) throw new Error("Start fehlgeschlagen");
-                startBtn.classList.add('active');
-                setTimeout(() => startBtn.classList.remove('active'), 500);
-              })
-              .catch(() => alert("Start fehlgeschlagen. Totmann aktiv?"));
-          }
-          break;
-
-        case 's':
-          e.preventDefault();
-          adjustDutyCycle(1);
-          break;
-
-        case 'l':
-          e.preventDefault();
-          adjustDutyCycle(-1);
-          break;
-
-        case 'd':
-          e.preventDefault();
-          directionToggle.checked = !directionToggle.checked;
-          directionToggle.dispatchEvent(new Event('change'));
-          break;
-      }
-    });
-
-    document.addEventListener('keyup', (e) => {
-      if (e.key === ' ') stopTotmann();
-    });
-
+    // Drehzahl einstellen
     function adjustDutyCycle(change) {
-      let newDuty = dutyCycle + change;
+      let newDuty = currentDuty + change;
       if (newDuty < 0) newDuty = 0;
       if (newDuty > 100) newDuty = 100;
+
+      currentDuty = newDuty;
       slider.value = newDuty;
       valDisplay.innerText = newDuty;
-      dutyCycle = newDuty;
+
       fetch('/set', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duty: currentDuty })
-      })
-        .catch(err => console.error('Fehler bei /set:', err));
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'value=' + currentDuty
+      }).catch(err => console.error('Fehler bei /set:', err));
+
       updateSpeedDisplay();
       updateZeitFromDuty(newDuty);
     }
+
 
     // Aufnahme starten
     function startRecording() {
@@ -656,25 +679,25 @@
     }
 
     function recordStart() {
+
       if (!recordingActive) return;
 
       const elapsed = Date.now() - recordingStartTime;
 
-      // Falls Werte noch nicht initialisiert sind, hole sie aus der UI:
-      if (direction == null) {
-        direction = directionToggle.checked ? 'GUZ' : 'IUZ';
+      // Falls Werte noch nicht initialisiert sind, aus UI holen
+      if (currentDirection == null) {
+        currentDirection = directionToggle.checked ? 'GUZ' : 'IUZ';
       }
-      if (dutyCycle == null) {
-        dutyCycle = parseInt(slider.value);
+      if (currentDuty == null) {
+        currentDuty = parseInt(slider.value);
       }
 
-      // Sicherstellen, dass kein doppelter Start direkt hintereinander entsteht:
-      if (
-        recordingActions.length > 0 &&
-        recordingActions[recordingActions.length - 1].type === 'start'
-      ) {
-        return; // vermeidet doppelte start-Aktion
-      }
+      // Nur nötig falls nur ein Start aufgezeichnet werden soll
+      // const last = recordingActions.at(-1);
+      // if (last && last.type === 'start') {
+      //   console.log("⚠️ Direkt aufeinanderfolgende Start-Aktion ignoriert");
+      //   return;
+      // }
 
       // Aufnahmeaktion hinzufügen
       recordingActions.push({
@@ -683,16 +706,24 @@
         duty: currentDuty,
         direction: currentDirection
       });
+
+      console.log('📀 Start-Aktion aufgezeichnet:', recordingActions.at(-1));
     }
 
-    // Aufnahme stoppen
-    function stopRecording() {
+    // --- Stop-Aktion ins Preset schreiben ---
+    function recordStop() {
       if (!recordingActive) return;
       const elapsed = Date.now() - recordingStartTime;
       recordingActions.push({ type: 'stop', time: elapsed });
+      console.log('🟢 Stop-Aktion aufgezeichnet:', recordingActions.at(-1));
+    }
 
+    // --- Aufnahme beenden ---
+    function stopRecording() {
+      if (!recordingActive) return;
       recordingActive = false;
       recordingStartTime = null;
+      console.log('🟣 Aufnahme gestoppt (Array bleibt erhalten)');
     }
 
     // Preset speichern
@@ -710,7 +741,7 @@
       }
 
       if (recordingActions.length === 0) {
-        alert('Keine Aktionen zum Speichern vorhanden. Bitte zuerst Start drücken und Aktionen durchführen.');
+        alert('Keine Aktionen zum Speichern vorhanden. Bitte zuerst Start & Stop drücken.');
         return;
       }
 
@@ -719,6 +750,7 @@
       loadPresets();
       presetNameInput.value = '';
       alert(`Preset "${name}" gespeichert.`);
+      recordingActions = [];
     });
 
     // Presets laden (Dropdown aktualisieren)
@@ -758,13 +790,14 @@
         return;
       }
 
-      // visuelles Feedback (optional)
-      playPresetBtn.style.opacity = "0.6";
+      // // visuelles Feedback (optional)
+      // playPresetBtn.style.opacity = "0.6";
 
       // keine Buttons mehr "disable"n – das verhindert Multitouch!
       // => stattdessen nur visuell anzeigen, dass etwas läuft
       startBtn.classList.add('disabled');
       stopBtn.classList.add('disabled');
+      directionToggle.disabled = true; // <-- Toggle sperren während Abspielen
 
       actions.forEach(action => {
         setTimeout(() => {
@@ -772,19 +805,27 @@
             case 'start':
               if ('direction' in action) {
                 currentDirection = action.direction;
-                const isGUZ = currentDirection === 'GUZ';
-                directionToggle.checked = isGUZ;
+                directionToggle.checked = (currentDirection === 'GUZ');
                 directionLabel.textContent = currentDirection;
+
+                fetch('/direction', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                  body: 'dir=' + currentDirection
+                }).catch(() => { });
               }
+
               if ('duty' in action) {
                 currentDuty = action.duty;
                 slider.value = currentDuty;
                 valDisplay.innerText = currentDuty;
+
                 fetch('/set', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ duty: currentDuty })
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                  body: 'value=' + currentDuty
                 }).catch(() => { });
+
                 updateSpeedDisplay();
                 updateZeitFromDuty(currentDuty);
               }
@@ -804,13 +845,15 @@
         playPresetBtn.style.opacity = "1";
         startBtn.classList.remove('disabled');
         stopBtn.classList.remove('disabled');
+        directionToggle.disabled = false; // <-- Toggle wieder freigeben
       }, maxTime + 500);
     }
 
-    // Touch-Unterstützung:
-    playPresetBtn.addEventListener('touchstart', handlePlayPreset);
-    playPresetBtn.addEventListener('mousedown', handlePlayPreset);
+    // // Touch-Unterstützung:
+    // playPresetBtn.addEventListener('touchstart', handlePlayPreset);
+    // playPresetBtn.addEventListener('mousedown', handlePlayPreset);
 
+    playPresetBtn.addEventListener('pointerdown', handlePlayPreset);
 
     // Presets exportieren
     document.getElementById('downloadPresetsBtn').addEventListener('click', () => {

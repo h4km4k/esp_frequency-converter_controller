@@ -7,12 +7,15 @@ WebServer server(80);
 const char* ssid = "ESP-FU-Steuerung";
 const char* password = "esp12345";
 
+
+String currentDirection = "IUZ";  // oder dein Default, z. B. "IUZ" / "GUZ"
 int dutyCycle = 0;
 int currentPwm = 0;
+int currentDuty = 0;              // Startwert 0 oder was du willst
 int targetPwm = 0;
 bool startFreigegeben = false;
 unsigned long lastTotmannSignal = 0;
-const unsigned long totmannTimeout = 400;  // Sicherheitsrelevant, 400ms sinnvoller Kompromiss
+const unsigned long totmannTimeout = 800;  // Sicherheitsrelevant, 400ms sinnvoller Kompromiss
 
 float scheibenDurchmesser = 7.5;
 
@@ -108,14 +111,22 @@ void setRichtungStop() {
 void handleStatus() {
   bool recentTotmann = (millis() - lastTotmannSignal) < totmannTimeout;
 
+  String status;
   if (recentTotmann && startFreigegeben) {
-    server.send(200, "text/plain", "aktiv");
+    status = "aktiv";
   } else if (recentTotmann && !startFreigegeben) {
-    server.send(200, "text/plain", "warte");
+    status = "warte";
   } else {
-    server.send(200, "text/plain", "stop");
+    status = "stop";
   }
+
+  String dir = currentDirection;
+  int duty = currentDuty;
+  String json = "{\"status\":\"" + status + "\",\"direction\":\"" + dir + "\",\"duty\":" + String(duty) + "}";
+
+  server.send(200, "application/json", json);
 }
+
 
 void handleGetDuty() {
   int dutyPercent = map(dutyCycle, 0, pwmRange, 0, 100);
