@@ -1,3 +1,12 @@
+#include "webinterface.h"
+
+// Dein HTML als Rohstringliteral (weiterhin im Flash-Speicher)
+const char webPage[] PROGMEM = R"rawliteral(
+
+
+
+
+
 <!DOCTYPE html>
 <html lang="de">
 
@@ -975,3 +984,13 @@
 </body>
 
 </html>
+
+
+
+
+
+)rawliteral";
+
+void handleRoot(AsyncWebServerRequest *request) {
+  request->send_P(200, "text/html", webPage);
+}
