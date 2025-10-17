@@ -263,7 +263,7 @@ const char webPage[] PROGMEM = R"rawliteral(
     <div id="stop">⏹ STOP</div>
 
     <div id="buttonRow">
-      <div id="totmann">Totmann</div>
+      <div id="totmann">Totmensch</div>
       <div id="start">▶ Start</div>
     </div>
 
@@ -335,7 +335,7 @@ const char webPage[] PROGMEM = R"rawliteral(
     const playPresetBtn = document.getElementById('playPreset');
     const deletePresetBtn = document.getElementById('deletePreset');
 
-
+    let directionSentForPress = false;
     let totmannActive = false;
     let totmannTimer = null;
     let scheibenDurchmesser = 7.5;
@@ -344,7 +344,7 @@ const char webPage[] PROGMEM = R"rawliteral(
     let recordingActions = [];
     let currentDirection;
     let currentDuty;
-
+    // let ws;
 
     function updateSpeedDisplay() {
       const umdrehzeit100 = 38;
@@ -486,19 +486,16 @@ const char webPage[] PROGMEM = R"rawliteral(
 
     // --- Signal an Server senden ---
     function sendTotmannSignal() {
-      fetch('/deadman', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'alive=1'
-      }).catch(() => { });
+      fetch('/deadman', { method: 'POST' }).catch(() => { });
 
-      // ➕ NEU: Richtung senden, wenn sie gesetzt ist
-      if (currentDirection) {
+      // ➕ Richtung nur einmal pro Tastendruck senden
+      if (!directionSentForPress && currentDirection) {
         fetch('/direction', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'dir=' + encodeURIComponent(currentDirection.toLowerCase())
         }).catch(() => { });
+        directionSentForPress = true; // ab jetzt nicht mehr senden, bis Taste losgelassen
       }
     }
 
@@ -507,8 +504,9 @@ const char webPage[] PROGMEM = R"rawliteral(
       if (totmannActive) return;
       totmannActive = true;
       totmannBtn.classList.add('active');
+      directionSentForPress = false;
       sendTotmannSignal();
-      totmannTimer = setInterval(sendTotmannSignal, 400);
+      totmannTimer = setInterval(sendTotmannSignal, 300);
     }
 
     // --- Totmann stoppen ---
@@ -516,6 +514,12 @@ const char webPage[] PROGMEM = R"rawliteral(
       if (!totmannActive) return;
       totmannActive = false;
       totmannBtn.classList.remove('active');
+      fetch('/direction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'dir=stop'
+      }).catch(() => { });
+      directionSentForPress = false;
       if (totmannTimer) {
         clearInterval(totmannTimer);
         totmannTimer = null;
@@ -523,22 +527,70 @@ const char webPage[] PROGMEM = R"rawliteral(
       console.log("Totmann losgelassen");
     }
 
-    // // --- Maus + Touch Events ---
-    // totmannBtn.addEventListener('mousedown', startTotmann);
-    // totmannBtn.addEventListener('mouseup', stopTotmann);
-    // totmannBtn.addEventListener('mouseleave', stopTotmann);
-    // totmannBtn.addEventListener('touchstart', startTotmann);
-    // totmannBtn.addEventListener('touchend', stopTotmann);
-
     totmannBtn.addEventListener('pointerdown', startTotmann);
     totmannBtn.addEventListener('pointerup', stopTotmann);
     totmannBtn.addEventListener('pointerleave', stopTotmann);
     totmannBtn.addEventListener('pointercancel', stopTotmann);
 
-    // totmannBtn.pointerdown = startTotmann;
-    // totmannBtn.pointerup = stopTotmann;
-    // totmannBtn.pointerleave = stopTotmann;
-    // totmannBtn.pointercancel = stopTotmann;
+    // // --- TOTMANN-FUNKTION ---
+
+    // // --- WebSocket initialisieren ---
+    // function initTotmannWS() {
+    //   const proto = location.protocol === "https:" ? "wss://" : "ws://";
+    //   ws = new WebSocket(proto + location.host + "/ws");
+
+    //   ws.onopen = () => console.log("Totmann-WebSocket verbunden");
+    //   ws.onclose = () => {
+    //     console.warn("Totmann-WebSocket getrennt, reconnect in 0,5s");
+    //     setTimeout(initTotmannWS, 500);
+    //   };
+    //   ws.onerror = (err) => console.error("WS-Fehler:", err);
+    // }
+
+    // initTotmannWS();
+
+    // // --- Signal an Server senden ---
+    // function sendTotmannSignal() {
+    //   if (ws && ws.readyState === WebSocket.OPEN) {
+    //     ws.send("t", { compress: false });
+    //   }
+
+    //   // // ➕ Richtung weiterhin per HTTP senden
+    //   // if (currentDirection) {
+    //   //   fetch('/direction', {
+    //   //     method: 'POST',
+    //   //     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    //   //     body: 'dir=' + encodeURIComponent(currentDirection.toLowerCase())
+    //   //   }).catch(() => { });
+    //   // }
+    // }
+
+    // // --- Totmann starten ---
+    // function startTotmann() {
+    //   if (totmannActive) return;
+    //   totmannActive = true;
+    //   totmannBtn.classList.add('active');
+    //   sendTotmannSignal();
+    //   totmannTimer = setInterval(sendTotmannSignal, 200);
+    // }
+
+    // // --- Totmann stoppen ---
+    // function stopTotmann() {
+    //   if (!totmannActive) return;
+    //   totmannActive = false;
+    //   totmannBtn.classList.remove('active');
+    //   if (totmannTimer) {
+    //     clearInterval(totmannTimer);
+    //     totmannTimer = null;
+    //   }
+    //   console.log("Totmann losgelassen");
+    // }
+
+    // // --- Event-Listener wie bisher ---
+    // totmannBtn.addEventListener('pointerdown', startTotmann);
+    // totmannBtn.addEventListener('pointerup', stopTotmann);
+    // totmannBtn.addEventListener('pointerleave', stopTotmann);
+    // totmannBtn.addEventListener('pointercancel', stopTotmann);
 
 
     // --- START-BUTTON (Maus + Touch vereint) ---
@@ -556,9 +608,9 @@ const char webPage[] PROGMEM = R"rawliteral(
 
       // Start-Kommando an ESP senden
       fetch('/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'start=1'
+        method: 'POST'//,
+        // headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        // body: 'start=1'
       })
         .then(response => {
           if (!response.ok) throw new Error("Start fehlgeschlagen");
@@ -639,9 +691,7 @@ const char webPage[] PROGMEM = R"rawliteral(
       fetch('/status')
         .then(res => res.json())
         .then(data => {
-          // Nur Status behandeln, keine Richtung oder Duty übernehmen
           statusDiv.classList.remove('status-aktiv', 'status-warte', 'status-stop');
-
           if (data.status === "aktiv") {
             statusDiv.classList.add('status-aktiv');
             statusDiv.innerText = "✅ Status: AKTIV";
@@ -778,7 +828,35 @@ const char webPage[] PROGMEM = R"rawliteral(
       }
     }
 
-    // Preset abspielen – Multitouch-kompatibel
+
+    // --- Drehrichtung nur im UI setzen, nicht senden ---
+    presetSelect.addEventListener('change', () => {
+      const selected = presetSelect.value;
+      if (!selected) return;
+
+      const raw = localStorage.getItem('preset_' + selected);
+      if (!raw) return;
+
+      let actions;
+      try {
+        actions = JSON.parse(raw);
+      } catch (err) {
+        console.warn("Preset ungültig:", err);
+        return;
+      }
+
+      // Richtung im UI anzeigen (aber nicht senden!)
+      const startAction = actions.find(a => a.type === 'start' && 'direction' in a);
+      if (startAction) {
+        currentDirection = startAction.direction;
+        directionToggle.checked = (currentDirection === 'GUZ');
+        directionLabel.textContent = currentDirection;
+        console.log("Preset gewählt – Richtung vorbereitet:", currentDirection);
+      }
+    });
+
+
+    // --- Preset abspielen – Multitouch-kompatibel ---
     function handlePlayPreset() {
       const selected = presetSelect.value;
       if (!selected) {
@@ -800,20 +878,19 @@ const char webPage[] PROGMEM = R"rawliteral(
         return;
       }
 
-      // // visuelles Feedback (optional)
-      // playPresetBtn.style.opacity = "0.6";
+      // visuelles Feedback
+      playPresetBtn.style.opacity = "0.75";
 
-      // keine Buttons mehr "disable"n – das verhindert Multitouch!
-      // => stattdessen nur visuell anzeigen, dass etwas läuft
       startBtn.classList.add('disabled');
       stopBtn.classList.add('disabled');
-      directionToggle.disabled = true; // <-- Toggle sperren während Abspielen
+      directionToggle.disabled = true;
 
       actions.forEach(action => {
         setTimeout(() => {
           switch (action.type) {
             case 'start':
-              if ('direction' in action) {
+              // Richtung nur setzen, falls nicht schon automatisch gesetzt
+              if ('direction' in action && currentDirection !== action.direction) {
                 currentDirection = action.direction;
                 directionToggle.checked = (currentDirection === 'GUZ');
                 directionLabel.textContent = currentDirection;
@@ -855,7 +932,7 @@ const char webPage[] PROGMEM = R"rawliteral(
         playPresetBtn.style.opacity = "1";
         startBtn.classList.remove('disabled');
         stopBtn.classList.remove('disabled');
-        directionToggle.disabled = false; // <-- Toggle wieder freigeben
+        directionToggle.disabled = false;
       }, maxTime + 500);
     }
 

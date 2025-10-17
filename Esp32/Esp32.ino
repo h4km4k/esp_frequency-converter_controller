@@ -25,8 +25,8 @@ const int pwmFreq = 2900;
 const int pwmResolution = 10;  // 10 Bit Auflösung (0-1023)
 const int pwmRange = 1023;
 
-const int relay1Pin = 18;  // GPIO für Relais 1
-const int relay2Pin = 19;  // GPIO für Relais 2
+const int relay1Pin = 17;  // GPIO für Relais 1
+const int relay2Pin = 18;  // GPIO für Relais 2
 
 
 const int n = 11;
@@ -102,11 +102,6 @@ void handleStop() {
   server.send(200, "text/plain", "Stop OK");
 }
 
-void setRichtungStop() {
-  digitalWrite(relay1Pin, HIGH);
-  digitalWrite(relay2Pin, HIGH);
-  Serial.println("Richtung: STOP");
-}
 
 void handleStatus() {
   bool recentTotmann = (millis() - lastTotmannSignal) < totmannTimeout;
@@ -155,14 +150,31 @@ void handleSetDiameter() {
   server.send(400, "text/plain", "Bad Request");
 }
 
+
+void setRichtungStop() {
+  digitalWrite(relay1Pin, HIGH);
+  digitalWrite(relay2Pin, HIGH);
+  Serial.println("Richtung: STOP");
+}
+
+
 void handleRichtung() {
   if (server.hasArg("dir")) {
     String dir = server.arg("dir");
+
+    if (dir == "stop") {
+      digitalWrite(relay1Pin, HIGH);
+      digitalWrite(relay2Pin, HIGH);
+      server.send(200, "text/plain", "Richtung: STOP");
+      Serial.println("Richtung: STOP");
+      return;
+    }
 
     if (dir == "iuz") {
       digitalWrite(relay1Pin, HIGH);
       digitalWrite(relay2Pin, LOW);
       server.send(200, "text/plain", "Richtung: Im Uhrzeigersinn");
+      Serial.println("Richtung: IUZ");
       return;
     }
 
@@ -170,6 +182,7 @@ void handleRichtung() {
       digitalWrite(relay1Pin, LOW);
       digitalWrite(relay2Pin, HIGH);
       server.send(200, "text/plain", "Richtung: Gegen Uhrzeigersinn");
+      Serial.println("Richtung: GUZ");
       return;
     }
   }

@@ -253,7 +253,7 @@
     <div id="stop">⏹ STOP</div>
 
     <div id="buttonRow">
-      <div id="totmann">Totmann</div>
+      <div id="totmann">Totmensch</div>
       <div id="start">▶ Start</div>
     </div>
 
@@ -325,6 +325,7 @@
     const playPresetBtn = document.getElementById('playPreset');
     const deletePresetBtn = document.getElementById('deletePreset');
 
+    let directionSentForPress = false;
     let totmannActive = false;
     let totmannTimer = null;
     let scheibenDurchmesser = 7.5;
@@ -333,7 +334,7 @@
     let recordingActions = [];
     let currentDirection;
     let currentDuty;
-    let ws;
+    // let ws;
 
     function updateSpeedDisplay() {
       const umdrehzeit100 = 38;
@@ -475,20 +476,17 @@
 
     // --- Signal an Server senden ---
     function sendTotmannSignal() {
-      fetch('/deadman', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }//,
-        // body: '1'
-      }).catch(() => { });
+      fetch('/deadman', { method: 'POST' }).catch(() => { });
 
-      // ➕ NEU: Richtung senden, wenn sie gesetzt ist
-      // if (currentDirection) {
-      //   fetch('/direction', {
-      //     method: 'POST',
-      //     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      //     body: 'dir=' + encodeURIComponent(currentDirection.toLowerCase())
-      //   }).catch(() => { });
-      // }
+      // ➕ Richtung nur einmal pro Tastendruck senden
+      if (!directionSentForPress && currentDirection) {
+        fetch('/direction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'dir=' + encodeURIComponent(currentDirection.toLowerCase())
+        }).catch(() => { });
+        directionSentForPress = true; // ab jetzt nicht mehr senden, bis Taste losgelassen
+      }
     }
 
     // --- Totmann starten ---
@@ -496,6 +494,7 @@
       if (totmannActive) return;
       totmannActive = true;
       totmannBtn.classList.add('active');
+      directionSentForPress = false;
       sendTotmannSignal();
       totmannTimer = setInterval(sendTotmannSignal, 300);
     }
@@ -505,6 +504,12 @@
       if (!totmannActive) return;
       totmannActive = false;
       totmannBtn.classList.remove('active');
+      fetch('/direction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'dir=stop'
+      }).catch(() => { });
+      directionSentForPress = false;
       if (totmannTimer) {
         clearInterval(totmannTimer);
         totmannTimer = null;
@@ -593,9 +598,9 @@
 
       // Start-Kommando an ESP senden
       fetch('/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'start=1'
+        method: 'POST'//,
+        // headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        // body: 'start=1'
       })
         .then(response => {
           if (!response.ok) throw new Error("Start fehlgeschlagen");
@@ -813,7 +818,35 @@
       }
     }
 
-    // Preset abspielen – Multitouch-kompatibel
+
+    // --- Drehrichtung nur im UI setzen, nicht senden ---
+    presetSelect.addEventListener('change', () => {
+      const selected = presetSelect.value;
+      if (!selected) return;
+
+      const raw = localStorage.getItem('preset_' + selected);
+      if (!raw) return;
+
+      let actions;
+      try {
+        actions = JSON.parse(raw);
+      } catch (err) {
+        console.warn("Preset ungültig:", err);
+        return;
+      }
+
+      // Richtung im UI anzeigen (aber nicht senden!)
+      const startAction = actions.find(a => a.type === 'start' && 'direction' in a);
+      if (startAction) {
+        currentDirection = startAction.direction;
+        directionToggle.checked = (currentDirection === 'GUZ');
+        directionLabel.textContent = currentDirection;
+        console.log("Preset gewählt – Richtung vorbereitet:", currentDirection);
+      }
+    });
+
+
+    // --- Preset abspielen – Multitouch-kompatibel ---
     function handlePlayPreset() {
       const selected = presetSelect.value;
       if (!selected) {
@@ -835,8 +868,8 @@
         return;
       }
 
-      // // visuelles Feedback (optional)
-      // playPresetBtn.style.opacity = "0.6";
+      // visuelles Feedback
+      playPresetBtn.style.opacity = "0.75";
 
       startBtn.classList.add('disabled');
       stopBtn.classList.add('disabled');
@@ -846,7 +879,8 @@
         setTimeout(() => {
           switch (action.type) {
             case 'start':
-              if ('direction' in action) {
+              // Richtung nur setzen, falls nicht schon automatisch gesetzt
+              if ('direction' in action && currentDirection !== action.direction) {
                 currentDirection = action.direction;
                 directionToggle.checked = (currentDirection === 'GUZ');
                 directionLabel.textContent = currentDirection;
@@ -970,7 +1004,7 @@
     });
 
 
-    setInterval(updateStatus, 1000);
+    setInterval(updateStatus, 500);
   </script>
 </body>
 
