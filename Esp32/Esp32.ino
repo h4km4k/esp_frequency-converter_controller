@@ -1,32 +1,44 @@
 #include <WiFi.h>
 #include <WebServer.h>
+#include "esp_wifi.h"
 #include "webinterface.h"
+#include "favicon.h"
+#include "manifest.h"
 
 WebServer server(80);
+
+  const char sw_js[] PROGMEM = R"(
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
+});
+self.addEventListener('fetch', (e) => {
+  e.respondWith(fetch(e.request));
+});
+)";
 
 const char* ssid = "ESP-FU-Steuerung";
 const char* password = "esp12345";
 
 
-String currentDirection = "IUZ";  // oder dein Default, z. B. "IUZ" / "GUZ"
+String currentDirection = "IUZ";
 int dutyCycle = 0;
 int currentPwm = 0;
-int currentDuty = 0;              // Startwert 0 oder was du willst
+int currentDuty = 0;
 int targetPwm = 0;
 bool startFreigegeben = false;
 unsigned long lastTotmannSignal = 0;
-const unsigned long totmannTimeout = 800;  // Sicherheitsrelevant, 400ms sinnvoller Kompromiss
+const unsigned long totmannTimeout = 1000;
 
 float scheibenDurchmesser = 7.5;
 
-const int pwmPin = 5;  // GPIO5 (entspricht D5 auf ESP8266)
+const int pwmPin = 5;
 const int pwmChannel = 0;
 const int pwmFreq = 2900;
 const int pwmResolution = 10;  // 10 Bit Auflösung (0-1023)
 const int pwmRange = 1023;
 
-const int relay1Pin = 17;  // GPIO für Relais 1
-const int relay2Pin = 18;  // GPIO für Relais 2
+const int relay1Pin = 17;
+const int relay2Pin = 18;
 
 
 const int n = 11;
@@ -198,6 +210,16 @@ void setup() {
   IPAddress gateway(192, 168, 1, 1);
   IPAddress subnet(255, 255, 255, 0);
   WiFi.softAPConfig(local_IP, gateway, subnet);
+  wifi_country_t myCountry = {
+    .cc = "DE",
+    .schan = 1,
+    .nchan = 13,
+    .policy = WIFI_COUNTRY_POLICY_MANUAL
+  };
+  esp_wifi_set_country(&myCountry);
+
+  // ⚙️ Bandbreite einstellen (z. B. 20 MHz)
+  esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
   WiFi.softAP(ssid, password);
 
   Serial.println("AP gestartet. IP-Adresse: " + WiFi.softAPIP().toString());
@@ -224,6 +246,13 @@ void setup() {
   server.on("/status", HTTP_GET, handleStatus);
   server.on("/getDuty", HTTP_GET, handleGetDuty);
   server.on("/getPWMforTime", HTTP_GET, handleGetPwm);
+
+  server.on("/favicon.png", []() {
+    server.send_P(200, "image/png", (const char*)favicon_png, favicon_png_len);
+  });
+  server.on("/manifest.webmanifest", []() {
+    server.send_P(200, "application/manifest+json", manifest_json);
+  });
 
   server.begin();
   Serial.println("Webserver gestartet");

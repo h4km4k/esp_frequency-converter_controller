@@ -13,10 +13,20 @@ const char webPage[] PROGMEM = R"rawliteral(
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hitachi FU Steuerung</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="application-name" content="Drehscheibe" />
+  <meta name="description" content="ESP32 Steuerung der Drehscheibe" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <title>Drehscheibe Steuerung</title>
+
   <style>
-    /* Dein bisheriges CSS – unverändert */
     html,
     body {
       margin: 0;
@@ -24,12 +34,14 @@ const char webPage[] PROGMEM = R"rawliteral(
       font-family: "Segoe UI", Tahoma, sans-serif;
       background: #f4f4f4;
       overscroll-behavior: none;
+      overflow-x: hidden;
+      box-sizing: border-box;
     }
 
     .container {
       background: #fff;
-      padding: 30px;
-      margin: 30px auto;
+      padding: 5px;
+      margin: 20px auto;
       border-radius: 12px;
       width: 90%;
       max-width: 500px;
@@ -224,11 +236,11 @@ const char webPage[] PROGMEM = R"rawliteral(
 
 <body>
   <div class="container">
-    <h2>Hitachi FU Steuerung</h2>
+    <h2>Drehscheibe Steuerung</h2>
     <p><strong>Drehzahl:</strong> <span id="val">0</span>%</p>
     <input type="range" min="0" max="100" value="0" id="slider" />
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px;">
       <div>
         <label><strong>Drehrichtung:</strong></label><br />
         <label class="switch">
@@ -246,7 +258,7 @@ const char webPage[] PROGMEM = R"rawliteral(
         <span id="diameterLabel">7,5m</span>
       </div>
       <div>
-        <label><strong>Geschwindigkeit:</strong></label><br />
+        <label><strong>Speed:</strong></label><br />
         <span id="speedDisplay">0,00 m/s</span>
       </div>
     </div>
@@ -344,7 +356,8 @@ const char webPage[] PROGMEM = R"rawliteral(
     let recordingActions = [];
     let currentDirection;
     let currentDuty;
-    // let ws;
+    let dutyCycle = 0;
+    let actions;
 
     function updateSpeedDisplay() {
       const umdrehzeit100 = 38;
@@ -385,7 +398,7 @@ const char webPage[] PROGMEM = R"rawliteral(
         });
     }
 
-    window.addEventListener('load', () => {
+    document.addEventListener('DOMContentLoaded', () => {
       // Lokale Grundwerte setzen
       fetchDutyCycle();
       updateSpeedDisplay();
@@ -421,20 +434,29 @@ const char webPage[] PROGMEM = R"rawliteral(
     });
 
 
+    // Nur Anzeige live updaten, aber erst am Ende senden
     slider.addEventListener('input', (e) => {
       const duty = parseInt(e.target.value);
       if (!isNaN(duty)) {
         valDisplay.innerText = duty;
         dutyCycle = duty;
+        updateSpeedDisplay();
+        updateZeitFromDuty(duty);
+      }
+    });
+
+    // Erst wenn Finger/Maus losgelassen wird, senden
+    slider.addEventListener('change', (e) => {
+      const duty = parseInt(e.target.value);
+      if (!isNaN(duty)) {
         fetch('/set', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'duty=' + encodeURIComponent(duty)
         }).catch(() => { });
-        updateSpeedDisplay();
-        updateZeitFromDuty(duty);
       }
     });
+
 
     zeitButton.addEventListener('click', () => {
       let zeit = parseFloat(zeitInput.value);
@@ -486,8 +508,6 @@ const char webPage[] PROGMEM = R"rawliteral(
 
     // --- Signal an Server senden ---
     function sendTotmannSignal() {
-      fetch('/deadman', { method: 'POST' }).catch(() => { });
-
       // ➕ Richtung nur einmal pro Tastendruck senden
       if (!directionSentForPress && currentDirection) {
         fetch('/direction', {
@@ -497,10 +517,15 @@ const char webPage[] PROGMEM = R"rawliteral(
         }).catch(() => { });
         directionSentForPress = true; // ab jetzt nicht mehr senden, bis Taste losgelassen
       }
+      fetch('/deadman', { method: 'POST' }).catch(() => { });
     }
 
     // --- Totmann starten ---
     function startTotmann() {
+      if (totmannTimer) {
+        clearInterval(totmannTimer);
+        totmannTimer = null;
+      }
       if (totmannActive) return;
       totmannActive = true;
       totmannBtn.classList.add('active');
@@ -532,67 +557,6 @@ const char webPage[] PROGMEM = R"rawliteral(
     totmannBtn.addEventListener('pointerleave', stopTotmann);
     totmannBtn.addEventListener('pointercancel', stopTotmann);
 
-    // // --- TOTMANN-FUNKTION ---
-
-    // // --- WebSocket initialisieren ---
-    // function initTotmannWS() {
-    //   const proto = location.protocol === "https:" ? "wss://" : "ws://";
-    //   ws = new WebSocket(proto + location.host + "/ws");
-
-    //   ws.onopen = () => console.log("Totmann-WebSocket verbunden");
-    //   ws.onclose = () => {
-    //     console.warn("Totmann-WebSocket getrennt, reconnect in 0,5s");
-    //     setTimeout(initTotmannWS, 500);
-    //   };
-    //   ws.onerror = (err) => console.error("WS-Fehler:", err);
-    // }
-
-    // initTotmannWS();
-
-    // // --- Signal an Server senden ---
-    // function sendTotmannSignal() {
-    //   if (ws && ws.readyState === WebSocket.OPEN) {
-    //     ws.send("t", { compress: false });
-    //   }
-
-    //   // // ➕ Richtung weiterhin per HTTP senden
-    //   // if (currentDirection) {
-    //   //   fetch('/direction', {
-    //   //     method: 'POST',
-    //   //     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    //   //     body: 'dir=' + encodeURIComponent(currentDirection.toLowerCase())
-    //   //   }).catch(() => { });
-    //   // }
-    // }
-
-    // // --- Totmann starten ---
-    // function startTotmann() {
-    //   if (totmannActive) return;
-    //   totmannActive = true;
-    //   totmannBtn.classList.add('active');
-    //   sendTotmannSignal();
-    //   totmannTimer = setInterval(sendTotmannSignal, 200);
-    // }
-
-    // // --- Totmann stoppen ---
-    // function stopTotmann() {
-    //   if (!totmannActive) return;
-    //   totmannActive = false;
-    //   totmannBtn.classList.remove('active');
-    //   if (totmannTimer) {
-    //     clearInterval(totmannTimer);
-    //     totmannTimer = null;
-    //   }
-    //   console.log("Totmann losgelassen");
-    // }
-
-    // // --- Event-Listener wie bisher ---
-    // totmannBtn.addEventListener('pointerdown', startTotmann);
-    // totmannBtn.addEventListener('pointerup', stopTotmann);
-    // totmannBtn.addEventListener('pointerleave', stopTotmann);
-    // totmannBtn.addEventListener('pointercancel', stopTotmann);
-
-
     // --- START-BUTTON (Maus + Touch vereint) ---
     startBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -607,18 +571,14 @@ const char webPage[] PROGMEM = R"rawliteral(
       }
 
       // Start-Kommando an ESP senden
-      fetch('/start', {
-        method: 'POST'//,
-        // headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        // body: 'start=1'
-      })
+      fetch('/start', { method: 'POST' })
         .then(response => {
           if (!response.ok) throw new Error("Start fehlgeschlagen");
           startBtn.classList.add('active');
           setTimeout(() => startBtn.classList.remove('active'), 500);
         })
         .catch(() => {
-          alert("Start fehlgeschlagen. Totmann aktiv?");
+          alert("Start fehlgeschlagen. Totmensch aktiv & Drezahl gesetzt?");
           recordingActive = false;
         });
     });
@@ -642,49 +602,69 @@ const char webPage[] PROGMEM = R"rawliteral(
     // Tastaturbedienung
     document.addEventListener('keydown', (e) => {
       const tag = document.activeElement.tagName;
-      if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT'].includes(tag)) return;
+      const id = document.activeElement.id || "";
+
+      // Eingaben blockieren, aber Totmann erlauben
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) ||
+        (tag === 'BUTTON' && id !== 'totmannBtn')) return;
 
       switch (e.key) {
         case ' ':
           e.preventDefault();
-          totmannBtn.dispatchEvent(new PointerEvent('pointerdown'));
+
+          if (!totmannActive) {
+            document.activeElement.blur();
+            totmannBtn.dispatchEvent(
+              new PointerEvent('pointerdown', { bubbles: true })
+            );
+          }
           break;
 
         case 'Enter':
           e.preventDefault();
-          startBtn.dispatchEvent(new PointerEvent('pointerdown'));
+          startBtn.dispatchEvent(
+            new PointerEvent('pointerdown', { bubbles: true })
+          );
           break;
 
         case 'Escape':
           e.preventDefault();
-          stopBtn.dispatchEvent(new PointerEvent('pointerdown'));
+          stopBtn.dispatchEvent(
+            new PointerEvent('pointerdown', { bubbles: true })
+          );
           break;
 
         case 's':
           e.preventDefault();
           slider.stepUp();
-          slider.dispatchEvent(new Event('input'));
+          slider.dispatchEvent(new Event('input', { bubbles: true }));
           break;
 
         case 'l':
           e.preventDefault();
           slider.stepDown();
-          slider.dispatchEvent(new Event('input'));
+          slider.dispatchEvent(new Event('input', { bubbles: true }));
           break;
 
         case 'd':
           e.preventDefault();
-          directionToggle.checked = !directionToggle.checked;
-          directionToggle.dispatchEvent(new Event('change'));
+          if (!totmannActive) {
+            directionToggle.checked = !directionToggle.checked;
+            directionToggle.dispatchEvent(new Event('change', { bubbles: true }));
+          }
           break;
       }
     });
 
     document.addEventListener('keyup', (e) => {
       if (e.key === ' ') {
-        totmannBtn.dispatchEvent(new PointerEvent('pointerup'));
+        e.preventDefault();
+        totmannBtn.dispatchEvent(
+          new PointerEvent('pointerup', { bubbles: true })
+        );
       }
     });
+
 
     // Updaten des Status (nur Anzeige)
     function updateStatus() {
@@ -751,13 +731,6 @@ const char webPage[] PROGMEM = R"rawliteral(
       if (currentDuty == null) {
         currentDuty = parseInt(slider.value);
       }
-
-      // Nur nötig falls nur ein Start aufgezeichnet werden soll
-      // const last = recordingActions.at(-1);
-      // if (last && last.type === 'start') {
-      //   console.log("⚠️ Direkt aufeinanderfolgende Start-Aktion ignoriert");
-      //   return;
-      // }
 
       // Aufnahmeaktion hinzufügen
       recordingActions.push({
@@ -858,6 +831,12 @@ const char webPage[] PROGMEM = R"rawliteral(
 
     // --- Preset abspielen – Multitouch-kompatibel ---
     function handlePlayPreset() {
+      if (!totmannActive) {
+        alert("Start verweigert: Totmensch nicht aktiv?");
+        console.warn("Totmannsignal nicht empfangen.");
+        return;
+      }
+
       const selected = presetSelect.value;
       if (!selected) {
         alert("Bitte ein Preset auswählen.");
@@ -870,7 +849,6 @@ const char webPage[] PROGMEM = R"rawliteral(
         return;
       }
 
-      let actions;
       try {
         actions = JSON.parse(raw);
       } catch (err) {
@@ -878,7 +856,6 @@ const char webPage[] PROGMEM = R"rawliteral(
         return;
       }
 
-      // visuelles Feedback
       playPresetBtn.style.opacity = "0.75";
 
       startBtn.classList.add('disabled');
@@ -889,7 +866,6 @@ const char webPage[] PROGMEM = R"rawliteral(
         setTimeout(() => {
           switch (action.type) {
             case 'start':
-              // Richtung nur setzen, falls nicht schon automatisch gesetzt
               if ('direction' in action && currentDirection !== action.direction) {
                 currentDirection = action.direction;
                 directionToggle.checked = (currentDirection === 'GUZ');
@@ -935,10 +911,6 @@ const char webPage[] PROGMEM = R"rawliteral(
         directionToggle.disabled = false;
       }, maxTime + 500);
     }
-
-    // // Touch-Unterstützung:
-    // playPresetBtn.addEventListener('touchstart', handlePlayPreset);
-    // playPresetBtn.addEventListener('mousedown', handlePlayPreset);
 
     playPresetBtn.addEventListener('pointerdown', handlePlayPreset);
 
