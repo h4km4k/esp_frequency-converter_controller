@@ -1,0 +1,11 @@
+* Netlist created with www.circuit-diagram.org
+* 
+V1 0 3.3
+'dcdcconverter primary:1 secondary:0 primary=DC secondary=DC
+V2 2 0
+'microcontroller #5:3 #1:4 #3:5 #0:6 #2:7 header=Frequency converter sz=6 p0=O p1=2 (RV) p2=L p3=1 (FW) p4= p5=PCS p6= p7= p8= p9= p10= p11= p12= p13= p14= p15= p16= p17= p18= p19= p20= p21= p22= p23= p24= p25= p26= p27= p28= p29= p30= p31= p32= p33= p34= p35= p36= p37= p38= p39=
+'microcontroller #5:8 #1:6 #3:7 #2:2 #0:1 #4:9 header=PWM_to_0-10V sz=6 p0=VCC p1=0-10V p2=GND p3=OUT-GND p4=PWM+ p5=PWM-GND p6= p7= p8= p9= p10= p11= p12= p13= p14= p15= p16= p17= p18= p19= p20= p21= p22= p23= p24= p25= p26= p27= p28= p29= p30= p31= p32= p33= p34= p35= p36= p37= p38= p39=
+'microcontroller #3:2 #5:0 #6:8 #20:9 #9:10 #11:11 header=WT32-ETH01 sz=30 p0=TXO p1=EN p2=RXO p3=GND p4=I00 p5=3V3 p6=GND p7=EN p8=IO39 p9=CFG p10=IO36 p11=485_EN p12=IO15 p13=RXD p14=IO14 p15=TXD p16=IO12 p17=GND p18=IO35 p19=3V3 p20=IO4 p21=GND p22=IO2 p23=5V p24=GND p25=LINK p26= p27= p28= p29= p30= p31= p32= p33= p34= p35= p36= p37= p38= p39=
+'Relay 3:3 5:4 4:12 2:2 1:0
+'Relay 5:5 3:12 4:13 2:2 1:0
+V3 1 12
