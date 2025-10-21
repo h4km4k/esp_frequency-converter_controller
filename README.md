@@ -13,6 +13,13 @@ The circuit:
 <img src="https://raw.githubusercontent.com/h4km4k/esp_frequency-converter_controller/refs/heads/main/Esp32_schematic/circuit.png" alt="Circuit" style="width:75%; height:auto;">
 
 
+## Favicon
+<img src="Screenshots/favicon.png" alt="First Screenshot" width="50" />
+
 
 ## Screenshots
 <img src="Screenshots/Screenshot_ui_1.png" alt="First Screenshot" width="350" />
+
+<img src="Screenshots/Screenshot_ui_2.png" alt="First Screenshot" width="350" />
+
+
