@@ -7,7 +7,6 @@ const char webPage[] PROGMEM = R"rawliteral(
 
 
 
-
 <!DOCTYPE html>
 <html lang="de">
 
@@ -723,21 +722,15 @@ const char webPage[] PROGMEM = R"rawliteral(
       if (!recordingActive) return;
 
       const elapsed = Date.now() - recordingStartTime;
-
-      // Falls Werte noch nicht initialisiert sind, aus UI holen
-      if (currentDirection == null) {
-        currentDirection = directionToggle.checked ? 'GUZ' : 'IUZ';
-      }
-      if (currentDuty == null) {
-        currentDuty = parseInt(slider.value);
-      }
+      const duty = parseInt(slider.value);
+      const direction = directionToggle.checked ? 'GUZ' : 'IUZ';
 
       // Aufnahmeaktion hinzufügen
       recordingActions.push({
         type: 'start',
         time: elapsed,
-        duty: currentDuty,
-        direction: currentDirection
+        duty,
+        direction
       });
 
       console.log('📀 Start-Aktion aufgezeichnet:', recordingActions.at(-1));
@@ -991,6 +984,7 @@ const char webPage[] PROGMEM = R"rawliteral(
 </body>
 
 </html>
+
 
 
 
