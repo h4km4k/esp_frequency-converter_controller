@@ -626,6 +626,13 @@ const char webPage[] PROGMEM = R"rawliteral(
           );
           break;
 
+        case 'p':
+          e.preventDefault();
+          playPresetBtn.dispatchEvent(
+            new PointerEvent('pointerdown', { bubbles: true })
+          );
+          break;
+
         case 'Escape':
           e.preventDefault();
           stopBtn.dispatchEvent(

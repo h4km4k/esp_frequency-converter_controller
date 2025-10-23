@@ -1,5 +1,7 @@
+#include <ETH.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <ArduinoOTA.h>
 #include "esp_wifi.h"
 #include "webinterface.h"
 #include "favicon.h"
@@ -7,7 +9,7 @@
 
 WebServer server(80);
 
-  const char sw_js[] PROGMEM = R"(
+const char sw_js[] PROGMEM = R"(
 self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
@@ -41,11 +43,11 @@ const int relay2Pin = 33;
 
 
 const int n = 11;
-float fahrzeit[] = { 38.28, 38.25, 44.73, 51.84, 61.45, 73.56, 94.41, 126.24, 184.87, 531.15, 3000 };
+float fahrzeit[] = { 38.28, 38.25, 44.73, 51.84, 61.45, 73.56, 94.41, 126.24, 184.87, 531.15, 2000 };
 int pwmProzent[] = { 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 1 };
 
 unsigned long lastRampUpdate = 0;
-const unsigned long rampStepDelay = 2;
+const unsigned long rampStepDelay = 4;
 
 int getPWMForFahrzeit(float zeit) {
   if (zeit <= fahrzeit[0]) return pwmProzent[0];
@@ -89,27 +91,23 @@ void handleStart() {
   bool recentTotmann = (millis() - lastTotmannSignal) < totmannTimeout;
 
   if (!recentTotmann) {
-    Serial.println("Start verweigert: Totmann nicht aktiv.");
-    server.send(400, "text/plain", "Start verweigert: Totmann nicht aktiv");
+    server.send(400, "text/plain", "Start verweigert: Totmensch nicht aktiv");
     return;
   }
 
   if (dutyCycle <= 0) {
-    Serial.println("Start verweigert: dutyCycle=0.");
     server.send(400, "text/plain", "Start verweigert: dutyCycle=0");
     return;
   }
 
   startFreigegeben = true;
   targetPwm = dutyCycle;
-  Serial.println("Start Befehl erhalten.");
   server.send(200, "text/plain", "Start OK");
 }
 
 void handleStop() {
   targetPwm = 0;
   startFreigegeben = false;
-  Serial.println("Stop Befehl erhalten.");
   server.send(200, "text/plain", "Stop OK");
 }
 
@@ -165,7 +163,6 @@ void handleSetDiameter() {
 void setRichtungStop() {
   digitalWrite(relay1Pin, LOW);
   digitalWrite(relay2Pin, LOW);
-  Serial.println("Richtung: STOP");
 }
 
 
@@ -177,7 +174,6 @@ void handleRichtung() {
       digitalWrite(relay1Pin, LOW);
       digitalWrite(relay2Pin, LOW);
       server.send(200, "text/plain", "Richtung: STOP");
-      Serial.println("Richtung: STOP");
       return;
     }
 
@@ -185,7 +181,6 @@ void handleRichtung() {
       digitalWrite(relay1Pin, HIGH);
       digitalWrite(relay2Pin, LOW);
       server.send(200, "text/plain", "Richtung: Im Uhrzeigersinn");
-      Serial.println("Richtung: IUZ");
       return;
     }
 
@@ -193,7 +188,6 @@ void handleRichtung() {
       digitalWrite(relay1Pin, LOW);
       digitalWrite(relay2Pin, HIGH);
       server.send(200, "text/plain", "Richtung: Gegen Uhrzeigersinn");
-      Serial.println("Richtung: GUZ");
       return;
     }
   }
@@ -204,24 +198,40 @@ void handleRichtung() {
 void setup() {
   Serial.begin(115200);
 
-  WiFi.mode(WIFI_AP);
-  IPAddress local_IP(192, 168, 1, 1);
-  IPAddress gateway(192, 168, 1, 1);
-  IPAddress subnet(255, 255, 255, 0);
-  WiFi.softAPConfig(local_IP, gateway, subnet);
-  wifi_country_t myCountry = {
-    .cc = "DE",
-    .schan = 1,
-    .nchan = 13,
-    .policy = WIFI_COUNTRY_POLICY_MANUAL
-  };
-  esp_wifi_set_country(&myCountry);
+  ETH.begin(ETH_PHY_LAN8720, 1, 23, 18, 17, ETH_CLOCK_GPIO0_IN);
+  ETH.config(
+    IPAddress(192, 168, 0, 1),
+    IPAddress(192, 168, 0, 1),
+    IPAddress(255, 255, 255, 0));
 
-  // ⚙️ Bandbreite einstellen (z. B. 20 MHz)
-  esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
-  WiFi.softAP(ssid, password);
+  delay(2500);
 
-  Serial.println("AP gestartet. IP-Adresse: " + WiFi.softAPIP().toString());
+  if (ETH.linkUp()) {
+    Serial.print("LAN IP: ");
+    Serial.println(ETH.localIP());
+    WiFi.mode(WIFI_OFF);
+  } else {
+
+    WiFi.mode(WIFI_AP);
+    IPAddress local_IP(192, 168, 1, 1);
+    IPAddress gateway(192, 168, 1, 1);
+    IPAddress subnet(255, 255, 255, 0);
+    WiFi.softAPConfig(local_IP, gateway, subnet);
+
+    wifi_country_t myCountry = {
+      .cc = "DE",
+      .schan = 1,
+      .nchan = 13,
+      .policy = WIFI_COUNTRY_POLICY_MANUAL
+    };
+    esp_wifi_set_country(&myCountry);
+    esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);
+
+    WiFi.softAP(ssid, password);
+
+    Serial.print("WLAN IP: ");
+    Serial.println(WiFi.softAPIP());
+  }
 
   ledcAttach(pwmPin, pwmFreq, pwmResolution);
   ledcWrite(pwmPin, 0);
@@ -253,7 +263,10 @@ void setup() {
   });
 
   server.begin();
-  Serial.println("Webserver gestartet");
+  ArduinoOTA.handle();
+  ArduinoOTA.setHostname("WT32-ETH01-OTA");
+  ArduinoOTA.setPassword("8fQ8Zvg8qPkN");
+  ArduinoOTA.begin();
 
   lastTotmannSignal = millis();
 }
@@ -261,6 +274,8 @@ void setup() {
 //////////////////////////////////LOOP/////////////////////////////////////
 void loop() {
   server.handleClient();
+
+  ArduinoOTA.handle();
 
   unsigned long now = millis();
   if (currentPwm != targetPwm && (now - lastRampUpdate >= rampStepDelay)) {
@@ -272,7 +287,6 @@ void loop() {
   }
 
   if ((millis() - lastTotmannSignal) > totmannTimeout && startFreigegeben) {
-    Serial.println("NOT-AUS: Totmann losgelassen!");
     startFreigegeben = false;
     targetPwm = 0;
     currentPwm = 0;
