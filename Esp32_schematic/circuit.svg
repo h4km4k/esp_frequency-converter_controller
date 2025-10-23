@@ -89,7 +89,7 @@
 	<text x="364" y="90" style="font-family:Arial;font-size:11px;text-anchor:start" dominant-baseline="middle" transform="rotate(0, 364, 90)">PWM+</text>
 	<line x1="460" y1="90" x2="470" y2="90" style="stroke:rgb(0, 0, 0);stroke-linecap:square;stroke-width:2" />
 	<text x="456" y="90" style="font-family:Arial;font-size:11px;text-anchor:end" dominant-baseline="middle" transform="rotate(0, 456, 90)">PWM-GND</text>
-	<line x1="180" y1="250" x2="300" y2="250" style="stroke:rgb(0, 0, 0);stroke-linecap:square;stroke-width:2" />
+	<line x1="180" y1="250" x2="320" y2="250" style="stroke:rgb(0, 0, 0);stroke-linecap:square;stroke-width:2" />
 	<line x1="180" y1="250" x2="180" y2="400" style="stroke:rgb(0, 0, 0);stroke-linecap:square;stroke-width:2" />
 	<line x1="180" y1="400" x2="650" y2="400" style="stroke:rgb(0, 0, 0);stroke-linecap:square;stroke-width:2" />
 	<line x1="150" y1="360" x2="300" y2="360" style="stroke:rgb(0, 0, 0);stroke-linecap:square;stroke-width:2" />

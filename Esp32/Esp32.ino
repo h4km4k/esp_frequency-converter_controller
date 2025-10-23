@@ -31,14 +31,13 @@ const unsigned long totmannTimeout = 1000;
 
 float scheibenDurchmesser = 7.5;
 
-const int pwmPin = 5;
-const int pwmChannel = 0;
+const int pwmPin = 4;
 const int pwmFreq = 2900;
 const int pwmResolution = 10;  // 10 Bit Auflösung (0-1023)
 const int pwmRange = 1023;
 
-const int relay1Pin = 17;
-const int relay2Pin = 18;
+const int relay1Pin = 32;
+const int relay2Pin = 33;
 
 
 const int n = 11;
@@ -164,8 +163,8 @@ void handleSetDiameter() {
 
 
 void setRichtungStop() {
-  digitalWrite(relay1Pin, HIGH);
-  digitalWrite(relay2Pin, HIGH);
+  digitalWrite(relay1Pin, LOW);
+  digitalWrite(relay2Pin, LOW);
   Serial.println("Richtung: STOP");
 }
 
@@ -175,8 +174,8 @@ void handleRichtung() {
     String dir = server.arg("dir");
 
     if (dir == "stop") {
-      digitalWrite(relay1Pin, HIGH);
-      digitalWrite(relay2Pin, HIGH);
+      digitalWrite(relay1Pin, LOW);
+      digitalWrite(relay2Pin, LOW);
       server.send(200, "text/plain", "Richtung: STOP");
       Serial.println("Richtung: STOP");
       return;
@@ -225,8 +224,7 @@ void setup() {
   Serial.println("AP gestartet. IP-Adresse: " + WiFi.softAPIP().toString());
 
   ledcAttach(pwmPin, pwmFreq, pwmResolution);
-  ledcWrite(pwmChannel, 0);
-  pinMode(pwmPin, OUTPUT);
+  ledcWrite(pwmPin, 0);
 
   pinMode(relay1Pin, OUTPUT);
   pinMode(relay2Pin, OUTPUT);
@@ -269,7 +267,7 @@ void loop() {
     if (currentPwm < targetPwm) currentPwm++;
     else if (currentPwm > targetPwm) currentPwm--;
 
-    ledcWrite(pwmChannel, currentPwm);
+    ledcWrite(pwmPin, currentPwm);
     lastRampUpdate = now;
   }
 
@@ -278,7 +276,7 @@ void loop() {
     startFreigegeben = false;
     targetPwm = 0;
     currentPwm = 0;
-    ledcWrite(pwmChannel, 0);
+    ledcWrite(pwmPin, 0);
     setRichtungStop();
   }
 }
