@@ -19,7 +19,7 @@ CH340G USB UART TTL Adapter 3,3V/5V für Arduino ESP8266 ESP32 Serial Converter 
 
 The circuit:
 
-<img src="https://raw.githubusercontent.com/h4km4k/esp_frequency-converter_controller/refs/heads/main/Esp32_schematic/circuit.png" alt="Circuit" style="width:75%; height:auto;">
+<img src="https://raw.githubusercontent.com/h4km4k/esp_frequency-converter_controller/refs/heads/main/Esp32_schematic/circuit.png" alt="Circuit" style="width:100%; height:auto;">
 
 
 ## Favicon
