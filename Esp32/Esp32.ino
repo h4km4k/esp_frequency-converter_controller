@@ -2,10 +2,13 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ArduinoOTA.h>
+#include "DhcpServerLAN.h"
 #include "esp_wifi.h"
 #include "webinterface.h"
 #include "favicon.h"
 #include "manifest.h"
+
+DhcpServerLAN dhcp;
 
 WebServer server(80);
 
@@ -21,17 +24,19 @@ self.addEventListener('fetch', (e) => {
 const char* ssid = "ESP-FU-Steuerung";
 const char* password = "esp12345";
 
-
 String currentDirection = "IUZ";
 int dutyCycle = 0;
 int currentPwm = 0;
 int currentDuty = 0;
 int targetPwm = 0;
 bool startFreigegeben = false;
+bool lanActive = false;
 unsigned long lastTotmannSignal = 0;
 const unsigned long totmannTimeout = 1000;
 
 float scheibenDurchmesser = 7.5;
+
+
 
 const int pwmPin = 4;
 const int pwmFreq = 2900;
@@ -48,6 +53,8 @@ int pwmProzent[] = { 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 1 };
 
 unsigned long lastRampUpdate = 0;
 const unsigned long rampStepDelay = 4;
+
+
 
 int getPWMForFahrzeit(float zeit) {
   if (zeit <= fahrzeit[0]) return pwmProzent[0];
@@ -198,20 +205,25 @@ void handleRichtung() {
 void setup() {
   Serial.begin(115200);
 
-  ETH.begin(ETH_PHY_LAN8720, 1, 23, 18, 17, ETH_CLOCK_GPIO0_IN);
-  ETH.config(
-    IPAddress(192, 168, 0, 1),
-    IPAddress(192, 168, 0, 1),
-    IPAddress(255, 255, 255, 0));
+  ETH.begin();
+  delay(5000);
 
-  delay(2500);
+  IPAddress serverIP(192, 168, 0, 1);
 
   if (ETH.linkUp()) {
+    ETH.config(serverIP, serverIP, IPAddress(255, 255, 255, 0));
+
     Serial.print("LAN IP: ");
-    Serial.println(ETH.localIP());
+    Serial.println(serverIP);
+
+    lanActive = true;
+
+    dhcp.begin(serverIP);
+    dhcp.setPoolRange(200, 254);
+    dhcp.setLeaseTime(3600);
+
     WiFi.mode(WIFI_OFF);
   } else {
-
     WiFi.mode(WIFI_AP);
     IPAddress local_IP(192, 168, 1, 1);
     IPAddress gateway(192, 168, 1, 1);
@@ -273,6 +285,10 @@ void setup() {
 
 //////////////////////////////////LOOP/////////////////////////////////////
 void loop() {
+  if (lanActive) {
+    dhcp.loop();
+  }
+
   server.handleClient();
 
   ArduinoOTA.handle();
