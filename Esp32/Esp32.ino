@@ -203,32 +203,33 @@ void handleRichtung() {
 
 //////////////////////////////////SETUP/////////////////////////////////////
 void setup() {
-  Serial.begin(115200);
+  // Serial.begin(115200);
+
+  IPAddress LanIP(192, 168, 0, 1);
+  IPAddress WlanIP(192, 168, 1, 1);
+  IPAddress subnet(255, 255, 255, 0);
+
 
   ETH.begin();
+  ETH.config(LanIP, LanIP, subnet);
   delay(5000);
 
-  IPAddress serverIP(192, 168, 0, 1);
-
   if (ETH.linkUp()) {
-    ETH.config(serverIP, serverIP, IPAddress(255, 255, 255, 0));
 
-    Serial.print("LAN IP: ");
-    Serial.println(serverIP);
+    // Serial.print("LAN IP: ");
+    // Serial.println(LanIP);
 
     lanActive = true;
 
-    dhcp.begin(serverIP);
+    dhcp.begin(LanIP);
     dhcp.setPoolRange(200, 254);
     dhcp.setLeaseTime(3600);
 
     WiFi.mode(WIFI_OFF);
   } else {
+    ETH.end();
     WiFi.mode(WIFI_AP);
-    IPAddress local_IP(192, 168, 1, 1);
-    IPAddress gateway(192, 168, 1, 1);
-    IPAddress subnet(255, 255, 255, 0);
-    WiFi.softAPConfig(local_IP, gateway, subnet);
+    WiFi.softAPConfig(WlanIP, WlanIP, subnet);
 
     wifi_country_t myCountry = {
       .cc = "DE",
@@ -241,8 +242,8 @@ void setup() {
 
     WiFi.softAP(ssid, password);
 
-    Serial.print("WLAN IP: ");
-    Serial.println(WiFi.softAPIP());
+    // Serial.print("WLAN IP: ");
+    // Serial.println(WiFi.softAPIP());
   }
 
   ledcAttach(pwmPin, pwmFreq, pwmResolution);
