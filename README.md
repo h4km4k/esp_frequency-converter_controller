@@ -1,6 +1,8 @@
 # esp_frequency-converter_controller
 This is a repository to control a frequency converter (with 0-10V) via web interface.
 
+The ESP8266 and ESP32-Websocket version is not latest, please do it by yourself if you need it.
+
 #### CONTRIBUTION: Thanks to Ole for designing and printing the 3D parts used in this project. Your contribution made the hardware setup possible!
 
 
