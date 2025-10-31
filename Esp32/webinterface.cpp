@@ -39,12 +39,23 @@ const char webPage[] PROGMEM = R"rawliteral(
 
     .container {
       background: #fff;
-      padding: 5px;
+      padding: 12px;
       margin: 20px auto;
       border-radius: 12px;
-      width: 90%;
-      max-width: 500px;
-      text-align: center;
+      width: 95%;
+      max-width: 1200px;
+      text-align: left;
+      box-sizing: border-box;
+      display: block;
+    }
+
+    /* neue Wrapper-Elemente für Layout */
+    .container .main {
+      /* Standard: full width */
+    }
+
+    .container .sidebar {
+      margin-top: 20px;
     }
 
     h2 {
@@ -95,17 +106,15 @@ const char webPage[] PROGMEM = R"rawliteral(
     }
 
     #stop {
-      margin-top: 20px;
-      width: 100%;
-      height: 60px;
-      font-size: 22px;
+      margin-top: 0;
+      height: 56px;
+      font-size: 20px;
       font-weight: bold;
       background-color: #f44336;
       color: white;
       border: none;
       border-radius: 8px;
-      display: flex;
-      max-width: 100%;
+      display: inline-flex;
       box-sizing: border-box;
       justify-content: center;
       align-items: center;
@@ -117,23 +126,29 @@ const char webPage[] PROGMEM = R"rawliteral(
     }
 
     #buttonRow {
-      margin-top: 20px;
+      margin-top: 12px;
       display: flex;
-      max-width: 100%;
+      width: 100%;
       box-sizing: border-box;
+      gap: 12px;
+      align-items: center;
       justify-content: space-between;
-      gap: 10px;
+    }
+
+    #buttonRow>* {
+      flex: 1 1 0;
+      min-width: 0;
     }
 
     #totmann,
     #start {
-      width: 48%;
-      height: 60px;
-      font-size: 20px;
+      flex: 1 1 0;
+      height: 56px;
+      font-size: 18px;
       font-weight: bold;
       border-radius: 8px;
       color: white;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
       touch-action: none;
@@ -165,7 +180,7 @@ const char webPage[] PROGMEM = R"rawliteral(
 
     #zeitContainer label {
       font-weight: bold;
-      font-size: 18px;
+      font-size: 14px;
     }
 
     #zeitContainer input[type=number] {
@@ -187,6 +202,17 @@ const char webPage[] PROGMEM = R"rawliteral(
     #zeitContainer button:active {
       background-color: #1976D2;
     }
+
+
+    .controls-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+
+
 
     .switch {
       position: relative;
@@ -230,100 +256,376 @@ const char webPage[] PROGMEM = R"rawliteral(
     input:checked+.slider:before {
       transform: translateX(26px);
     }
+
+    /* sichtbarer Fokus für Tastaturbenutzung */
+    .switch input:focus+.slider {
+      outline: 3px solid rgba(33, 150, 243, 0.18);
+      outline-offset: 2px;
+    }
+
+    /* Labels neben Toggles etwas kleiner */
+    .controls-row label strong {
+      font-size: 14px;
+    }
+
+    #directionLabel,
+    #diameterLabel {
+      font-size: 14px;
+      display: inline-block;
+      margin-left: 6px;
+    }
+
+    /* Zeit-Block näher an die Toggles und flacher Button */
+    #zeitContainer {
+      margin-top: 10px;
+      text-align: left;
+    }
+
+    /* Media Query für breitere Bildschirme (z. B. Desktop / Breitbild) */
+    @media (min-width: 900px) {
+      .container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        text-align: center;
+        align-items: start;
+      }
+
+      /* Main content behält volle Breite der linken Spalte */
+      .container .main {
+        padding-right: 8px;
+      }
+
+      /* Sidebar optisch hervorheben */
+      .container .sidebar {
+        background: #fafafa;
+        border-radius: 10px;
+        padding: 12px;
+        height: auto;
+        position: sticky;
+        top: 20px;
+        align-self: start;
+      }
+
+      h2 {
+        font-size: 1.4rem;
+      }
+
+      /* Slider/Inputs etwas größer auf großen Displays */
+      input[type=range],
+      input[type=number],
+      select {
+        font-size: 18px;
+      }
+
+      #val {
+        font-size: 28px;
+      }
+
+      #status {
+        font-size: 18px;
+        padding: 14px;
+      }
+
+      #stop {
+        height: 64px;
+        font-size: 22px;
+      }
+
+      /* Buttons in ButtonRow bleiben nebeneinander, aber mit größerer Höhe */
+      #totmann,
+      #start {
+        height: 64px;
+        font-size: 20px;
+      }
+    }
+
+    /* Sehr große Bildschirme: etwas mehr Platz links geben */
+    @media (min-width: 1400px) {
+      .container {
+        grid-template-columns: 1fr 420px;
+        max-width: 1400px;
+      }
+    }
+
+    /* Spezielles kompaktes Layout für breite, sehr flache Displays (z.B. 1000×440) */
+    @media (min-width: 980px) and (max-height: 440px) {
+
+      html,
+      body {
+        font-size: 12px;
+      }
+
+      /* Basis-Schrift verkleinern */
+
+      .container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        /* beide Blöcke je halb breit */
+        gap: 10px;
+        padding: 6px;
+        margin: 6px auto;
+        max-width: 1000px;
+      }
+
+      /* Sidebar nicht sticky im flachen Querformat (verhindert Layout-Verschiebungen) */
+      .container .sidebar {
+        position: static;
+        background: #fafafa;
+        border-radius: 8px;
+        padding: 8px;
+        z-index: 1;
+        align-self: start;
+      }
+
+      /* main als einspaltiger Bereich (rechte Spalte) - die Buttons links in einer Zeile */
+      .container .main {
+        display: grid;
+        grid-template-columns: 1fr;
+        /* Inhalte in der rechten Hälfte */
+        gap: 8px;
+      }
+
+      .container .main>h2,
+      .container .main>p,
+      #slider,
+      #zeitContainer,
+      #status {
+        grid-column: 1 / -1;
+        margin-bottom: 6px;
+      }
+
+      /* ButtonRow: three equal buttons side-by-side */
+      #buttonRow {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      #totmann,
+      #stop,
+      #start {
+        flex: 1 1 0;
+        height: 46px;
+        font-size: 14px;
+        padding: 6px;
+        box-sizing: border-box;
+      }
+
+      #totmann {
+        background-color: #FFEB3B;
+        color: black;
+        border-radius: 6px;
+      }
+
+      #stop {
+        background-color: #f44336;
+        color: white;
+        border-radius: 6px;
+      }
+
+      #start {
+        background-color: #4CAF50;
+        color: white;
+        border-radius: 6px;
+      }
+    }
+
+    /* zusätzlich Querformat: Slider neben Drehzahl */
+    @media (orientation: landscape) {
+      .drehzahl-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .drehzahl-label {
+        margin: 0;
+        white-space: nowrap;
+        font-size: 16px;
+      }
+
+      .drehzahl-row input[type=range] {
+        margin-top: 0;
+        /* entferne oberen Abstand */
+        flex: 1 1 auto;
+        min-width: 120px;
+      }
+
+      /* falls die controls-row etwas zu weit rechts sitzt, passe Abstand an */
+      .controls-row {
+        gap: 8px;
+      }
+    }
+
+    /* im Hochformat STOP etwas größer machen, Totmann/Start weiterhin gleich breit */
+    @media (orientation: portrait) {
+      #buttonRow>* {
+        flex: 1 1 0;
+      }
+
+      /* gleiche Basisbreite */
+      #stop {
+        flex: 1 1 0;
+      }
+
+      /* STOP etwas breiter */
+      #totmann,
+      #start {
+        flex: 1 1 0;
+      }
+
+      #buttonRow>* {
+        height: 48px;
+      }
+
+      /* kompaktere Höhe im Portrait */
+    }
+
+    /* Styling für nicht-verkoppeltes Import-Label (verhindert, dass Klick die File-Input öffnet) */
+    .import-label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 5px;
+      cursor: default;
+    }
+
+    /* Import-Feld: sieht aus wie das zuvor sichtbare input, öffnet aber nicht selbst den Dialog */
+    .import-field {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 16px;
+      color: #333;
+      user-select: none;
+    }
+
+    .import-filename {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1 1 auto;
+    }
+
+    .import-btn {
+      flex: 0 0 auto;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: none;
+      background: #f0f0f0;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .import-btn:active {
+      background: #e6e6e6;
+    }
   </style>
 </head>
 
 <body>
   <div class="container">
-    <h2>Drehscheibe Steuerung</h2>
-    <p><strong>Drehzahl:</strong> <span id="val">0</span>%</p>
-    <input type="range" min="0" max="100" value="0" id="slider" />
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px;">
-      <div>
-        <label><strong>Drehrichtung:</strong></label><br />
-        <label class="switch">
-          <input type="checkbox" id="directionToggle" />
-          <span class="slider"></span>
-        </label>
-        <span id="directionLabel">IUZ</span>
+    <!-- WRAPPER: main - Hauptbedienelemente (Drehzahl, Slider, Zeit, Status, Stop, Start/Totmann) -->
+    <div class="main">
+      <div class="drehzahl-row">
+        <p class="drehzahl-label"><strong>Drehzahl:</strong> <span id="val">0</span>%</p>
+        <input type="range" min="0" max="100" value="0" id="slider" />
       </div>
-      <div>
-        <label><strong>Durchmesser:</strong></label><br />
-        <label class="switch">
-          <input type="checkbox" id="diameterToggle" />
-          <span class="slider"></span>
-        </label>
-        <span id="diameterLabel">7,5m</span>
+
+      <div class="controls-row">
+        <div>
+          <label><strong>Drehrichtung:</strong></label><br />
+          <label class="switch">
+            <input type="checkbox" id="directionToggle" />
+            <span class="slider"></span>
+          </label>
+          <span id="directionLabel">IUZ</span>
+        </div>
+        <div>
+          <label><strong>Durchmesser:</strong></label><br />
+          <label class="switch">
+            <input type="checkbox" id="diameterToggle" />
+            <span class="slider"></span>
+          </label>
+          <span id="diameterLabel">7,5m</span>
+        </div>
+        <div>
+          <label><strong>Speed:</strong></label><br />
+          <span id="speedDisplay">0,00 m/s</span>
+        </div>
       </div>
-      <div>
-        <label><strong>Speed:</strong></label><br />
-        <span id="speedDisplay">0,00 m/s</span>
+
+      <div id="zeitContainer">
+        <label for="zeitInput">Zeit/Umdrehung (Sekunden):</label>
+        <input type="number" id="zeitInput" min="0" step="0.01" placeholder="z. B. 70" />
+        <button id="zeitButton">Zeit übernehmen</button>
+      </div>
+
+      <div id="status">Status: Unbekannt</div>
+
+      <div id="buttonRow">
+        <div id="totmann">Totmensch</div>
+        <div id="stop">⏹ STOP</div>
+        <div id="start">▶ Start</div>
       </div>
     </div>
 
-    <div id="zeitContainer">
-      <label for="zeitInput">Zeit/Umdrehung (Sekunden):</label>
-      <input type="number" id="zeitInput" min="0" step="0.01" placeholder="z. B. 70" />
-      <button id="zeitButton">Zeit übernehmen</button>
-    </div>
 
-    <div id="status">Status: Unbekannt</div>
+    <aside class="sidebar">
+      <div id="presetControls" style="margin-top: 0; text-align: left;">
+        <label for="presetName" style="font-weight: bold; font-size: 14px;">📝 Preset speichern:</label>
+        <input type="text" id="presetName" placeholder="z.B. 1. Fahrt, Bild 1"
+          style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;" />
 
+        <button id="savePreset"
+          style="margin-top: 10px; width: 100%; height: 40px; font-size: 18px; font-weight: bold; background-color: #2196F3; color: white; border: none; border-radius: 6px;">
+          💾 Preset speichern
+        </button>
 
-    <div id="stop">⏹ STOP</div>
+        <label for="presetSelect" style="display: block; margin-top: 20px; font-weight: bold; font-size: 14px;">📂
+          Preset laden:</label>
+        <select id="presetSelect" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px;">
+          <option value="">-- Bitte wählen --</option>
+        </select>
 
-    <div id="buttonRow">
-      <div id="totmann">Totmensch</div>
-      <div id="start">▶ Start</div>
-    </div>
+        <div style="margin-top: 10px; display: flex; gap: 10px;">
+          <div id="playPreset" style="flex: 1; font-size: 16px; background-color: #4CAF50; color: white; border-radius: 6px; height: 36px;
+                display: flex; align-items: center; justify-content: center;">
+            🔁 Wiedergabe
+          </div>
 
-
-    <div id="presetControls" style="margin-top: 30px; text-align: left;">
-      <label for="presetName" style="font-weight: bold; font-size: 18px;">📝 Preset speichern:</label>
-      <input type="text" id="presetName" placeholder="z. B. 1. Fahrt, Bild 1"
-        style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;" />
-
-      <button id="savePreset"
-        style="margin-top: 10px; width: 100%; height: 40px; font-size: 18px; font-weight: bold; background-color: #2196F3; color: white; border: none; border-radius: 6px;">
-        💾 Preset speichern
-      </button>
-
-      <label for="presetSelect" style="display: block; margin-top: 20px; font-weight: bold; font-size: 18px;">📂 Preset
-        laden:</label>
-      <select id="presetSelect" style="width: 100%; padding: 8px; box-sizing: border-box; margin-top: 5px;">
-        <option value="">-- Bitte wählen --</option>
-      </select>
-
-      <div style="margin-top: 10px; display: flex; gap: 10px;">
-        <div id="playPreset" style="flex: 1; font-size: 16px; background-color: #4CAF50; color: white; border-radius: 6px; height: 36px;
-              display: flex; align-items: center; justify-content: center;">
-          🔁 Wiedergabe
+          <button id="deletePreset"
+            style="flex: 1; font-size: 16px; background-color: #f44336; color: white; border: none; border-radius: 6px; height: 36px;">
+            🗑️ Löschen
+          </button>
         </div>
 
-        <button id="deletePreset"
-          style="flex: 1; font-size: 16px; background-color: #f44336; color: white; border: none; border-radius: 6px; height: 36px;">
-          🗑️ Löschen
+      </div>
+
+      <div style="margin-top: 20px;">
+        <button id="downloadPresetsBtn"
+          style="width: 100%; height: 40px; font-size: 18px; font-weight: bold; background-color: #2196F3; color: white; border: none; border-radius: 6px;">
+          📥 Alle Presets herunterladen (JSON)
         </button>
       </div>
 
-    </div>
-
-    <div style="margin-top: 20px;">
-      <button id="downloadPresetsBtn"
-        style="width: 100%; height: 40px; font-size: 18px; font-weight: bold; background-color: #2196F3; color: white; border: none; border-radius: 6px;">
-        📥 Alle Presets herunterladen (JSON)
-      </button>
-    </div>
-
-    <div style="margin-top: 20px;">
-      <label for="importPresetsInput" style="font-weight: bold; display: block; margin-bottom: 5px;">
-        📂 Presets importieren (JSON):
-      </label>
-      <input type="file" id="importPresetsInput" accept=".json"
-        style="width: 100%; padding: 8px; box-sizing: border-box;" />
-    </div>
-  </div>
+      <div style="margin-top: 20px;">
+        <div class="import-label">📂 Presets importieren (JSON):</div>
+        <input type="file" id="importPresetsInput" accept=".json" style="display:none" />
+        <div class="import-field" aria-hidden="true">
+          <span class="import-filename" id="importFilename">Keine Datei ausgewählt</span>
+          <button id="importPresetsBtn" type="button" class="import-btn">📂 Datei wählen</button>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <script>
@@ -345,6 +647,16 @@ const char webPage[] PROGMEM = R"rawliteral(
     const presetSelect = document.getElementById('presetSelect');
     const playPresetBtn = document.getElementById('playPreset');
     const deletePresetBtn = document.getElementById('deletePreset');
+
+    // Entfernt Fokus vom aktuell fokussierten Element, außer es ist der Totmann-Button.
+    function clearFocusExceptTotmann() {
+      setTimeout(() => {
+        const el = document.activeElement;
+        if (!el) return;
+        if (el.id === 'totmann') return;
+        try { el.blur(); } catch (e) { /* ignore */ }
+      }, 0);
+    }
 
     let directionSentForPress = false;
     let totmannActive = false;
@@ -453,9 +765,10 @@ const char webPage[] PROGMEM = R"rawliteral(
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'duty=' + encodeURIComponent(duty)
         }).catch(() => { });
+        // Fokus nach Slider-Interaktion entfernen (außer Totmann)
+        clearFocusExceptTotmann();
       }
     });
-
 
     zeitButton.addEventListener('click', () => {
       let zeit = parseFloat(zeitInput.value);
@@ -484,6 +797,8 @@ const char webPage[] PROGMEM = R"rawliteral(
         .catch(err => {
           alert("Fehler beim Abrufen der PWM: " + err.message);
         });
+      // Fokus nach Zeit-Übernehmen entfernen (außer Totmann)
+      clearFocusExceptTotmann();
     });
 
     diameterToggle.addEventListener('change', () => {
@@ -580,6 +895,8 @@ const char webPage[] PROGMEM = R"rawliteral(
           alert("Start fehlgeschlagen. Totmensch aktiv & Drezahl gesetzt?");
           recordingActive = false;
         });
+      // Fokus nach Start entfernen (außer Totmann)
+      clearFocusExceptTotmann();
     });
 
 
@@ -595,6 +912,8 @@ const char webPage[] PROGMEM = R"rawliteral(
 
       // 3️⃣ Aufnahme beenden (aber Array behalten)
       stopRecording();
+      // Fokus nach Stop entfernen (außer Totmann)
+      clearFocusExceptTotmann();
     });
 
 
@@ -784,6 +1103,8 @@ const char webPage[] PROGMEM = R"rawliteral(
       presetNameInput.value = '';
       alert(`Preset "${name}" gespeichert.`);
       recordingActions = [];
+      // Fokus nach Speichern entfernen (außer Totmann)
+      clearFocusExceptTotmann();
     });
 
     // Presets laden (Dropdown aktualisieren)
@@ -826,8 +1147,9 @@ const char webPage[] PROGMEM = R"rawliteral(
         directionLabel.textContent = currentDirection;
         console.log("Preset gewählt – Richtung vorbereitet:", currentDirection);
       }
+      // Fokus nach Dropdown-Auswahl entfernen (außer Totmann)
+      clearFocusExceptTotmann();
     });
-
 
     // --- Preset abspielen – Multitouch-kompatibel ---
     function handlePlayPreset() {
@@ -909,6 +1231,8 @@ const char webPage[] PROGMEM = R"rawliteral(
         startBtn.classList.remove('disabled');
         stopBtn.classList.remove('disabled');
         directionToggle.disabled = false;
+        // Fokus nach Preset-Wiedergabe-Start zurücknehmen
+        clearFocusExceptTotmann();
       }, maxTime + 500);
     }
 
@@ -939,6 +1263,7 @@ const char webPage[] PROGMEM = R"rawliteral(
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      clearFocusExceptTotmann();
     });
 
     // Presets importieren
@@ -968,6 +1293,7 @@ const char webPage[] PROGMEM = R"rawliteral(
         }
       };
       reader.readAsText(file);
+      clearFocusExceptTotmann();
     });
 
     // Preset löschen
@@ -983,8 +1309,24 @@ const char webPage[] PROGMEM = R"rawliteral(
         loadPresets();
         alert(`Preset "${selected}" gelöscht.`);
       }
+      clearFocusExceptTotmann();
     });
 
+    // --- Import-Button / Filename UI (öffnet nur beim Klick auf den Button) ---
+    const importPresetsInput = document.getElementById('importPresetsInput');
+    const importPresetsBtn = document.getElementById('importPresetsBtn');
+    const importFilename = document.getElementById('importFilename');
+    if (importPresetsBtn && importPresetsInput) {
+      importPresetsBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        importPresetsInput.click();
+      });
+      importPresetsInput.addEventListener('change', (e) => {
+        const f = e.target.files && e.target.files[0];
+        importFilename.textContent = f ? f.name : 'Keine Datei ausgewählt';
+        // vorhandene change-Handler weiter unten verarbeitet das File
+      });
+    }
 
     setInterval(updateStatus, 500);
   </script>
