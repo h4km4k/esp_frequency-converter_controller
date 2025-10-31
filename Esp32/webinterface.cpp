@@ -829,7 +829,7 @@ const char webPage[] PROGMEM = R"rawliteral(
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'dir=' + encodeURIComponent(currentDirection.toLowerCase())
         }).catch(() => { });
-        directionSentForPress = true; // ab jetzt nicht mehr senden, bis Taste losgelassen
+        directionSentForPress = true;
       }
       fetch('/deadman', { method: 'POST' }).catch(() => { });
     }
@@ -864,6 +864,8 @@ const char webPage[] PROGMEM = R"rawliteral(
         totmannTimer = null;
       }
       console.log("Totmann losgelassen");
+      recordingActive = false;
+      recordingStartTime = null;
     }
 
     totmannBtn.addEventListener('pointerdown', startTotmann);
@@ -922,9 +924,8 @@ const char webPage[] PROGMEM = R"rawliteral(
       const tag = document.activeElement.tagName;
       const id = document.activeElement.id || "";
 
-      // Eingaben blockieren, aber Totmann erlauben
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) ||
-        (tag === 'BUTTON' && id !== 'totmannBtn')) return;
+        (tag === 'BUTTON' && id !== 'totmann')) return;
 
       switch (e.key) {
         case ' ':
@@ -961,14 +962,26 @@ const char webPage[] PROGMEM = R"rawliteral(
 
         case 's':
           e.preventDefault();
-          slider.stepUp();
-          slider.dispatchEvent(new Event('input', { bubbles: true }));
+          {
+            const step = Number(slider.step) || 1;
+            const max = Number(slider.max) || 100;
+            let value = Number(slider.value) || 0;
+            value = Math.min(max, value + step);
+            slider.value = String(value);
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+          }
           break;
 
         case 'l':
           e.preventDefault();
-          slider.stepDown();
-          slider.dispatchEvent(new Event('input', { bubbles: true }));
+          {
+            const step = Number(slider.step) || 1;
+            const min = Number(slider.min) || 0;
+            let value = Number(slider.value) || 0;
+            value = Math.max(min, value - step);
+            slider.value = String(value);
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+          }
           break;
 
         case 'd':
@@ -987,6 +1000,19 @@ const char webPage[] PROGMEM = R"rawliteral(
         totmannBtn.dispatchEvent(
           new PointerEvent('pointerup', { bubbles: true })
         );
+        return;
+      }
+
+      // Bei Loslassen von 's' oder 'l' einmalig senden: aktuellen Slider-Wert verwenden
+      if (e.key === 's' || e.key === 'l') {
+        e.preventDefault();
+        const duty = Number(slider.value);
+        fetch('/set', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'duty=' + encodeURIComponent(duty)
+        }).catch(() => { });
+        clearFocusExceptTotmann();
       }
     });
 
@@ -1047,7 +1073,8 @@ const char webPage[] PROGMEM = R"rawliteral(
 
       if (!recordingActive) return;
 
-      const elapsed = Date.now() - recordingStartTime;
+      let elapsed = Date.now() - recordingStartTime;
+      if (recordingActions.length === 0) elapsed = 0;
       const duty = parseInt(slider.value);
       const direction = directionToggle.checked ? 'GUZ' : 'IUZ';
 
@@ -1328,7 +1355,7 @@ const char webPage[] PROGMEM = R"rawliteral(
       });
     }
 
-    setInterval(updateStatus, 500);
+    setInterval(updateStatus, 750);
   </script>
 </body>
 
