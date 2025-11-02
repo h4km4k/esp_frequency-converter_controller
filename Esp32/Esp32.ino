@@ -42,6 +42,7 @@ const int pwmPin = 4;
 const int pwmFreq = 2900;
 const int pwmResolution = 10;  // 10 Bit Auflösung (0-1023)
 const int pwmRange = 1023;
+const int minPWM = 80;  // Mindestwert, bei dem dein Motor zuverlässig anläuft (kannst du anpassen)
 
 const int relay1Pin = 32;
 const int relay2Pin = 33;
@@ -80,7 +81,11 @@ void handleSet() {
   if (server.hasArg("duty")) {
     int val = server.arg("duty").toInt();
     if (val >= 0 && val <= 100) {
-      dutyCycle = map(val, 0, 100, 0, pwmRange);
+      if (val <= 0) {
+        dutyCycle = 0;
+      } else {
+        dutyCycle = minPWM + (int)((val - 1) / 99.0 * (1023 - minPWM));
+      }
       server.send(200, "text/plain", "OK");
       return;
     }

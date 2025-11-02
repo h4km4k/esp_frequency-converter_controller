@@ -670,7 +670,7 @@ const char webPage[] PROGMEM = R"rawliteral(
     let dutyCycle = 0;
     let actions;
     let playPresetTimeouts = [];
-    let startFailedAlertShown = false;
+    let totmannAlertShown = false;
 
     function updateSpeedDisplay() {
       const umdrehzeit100 = 38;
@@ -849,7 +849,6 @@ const char webPage[] PROGMEM = R"rawliteral(
       directionSentForPress = false;
       sendTotmannSignal();
       totmannTimer = setInterval(sendTotmannSignal, 300);
-      startFailedAlertShown = false;
     }
 
     // --- Totmann stoppen ---
@@ -869,6 +868,7 @@ const char webPage[] PROGMEM = R"rawliteral(
       }
       console.log("Totmann losgelassen");
       recordingActive = false;
+      totmannAlertShown = false;
       recordingStartTime = null;
       actions = null;
       playPresetTimeouts.forEach(t => clearTimeout(t));
@@ -904,16 +904,14 @@ const char webPage[] PROGMEM = R"rawliteral(
           if (!response.ok) throw new Error("Start fehlgeschlagen");
           startBtn.classList.add('active');
           setTimeout(() => startBtn.classList.remove('active'), 500);
-          startFailedAlertShown = false;
+          totmannAlertShown = false;
         })
         .catch(() => {
-          if (!startFailedAlertShown) {
+          if (!totmannAlertShown) {
             alert("Start fehlgeschlagen. Totmensch aktiv & Drehzahl gesetzt?");
-            startFailedAlertShown = true;
+            totmannAlertShown = true;
           }
-          recordingActive = false;
         });
-      // Fokus nach Start entfernen (außer Totmann)
       clearFocusExceptTotmann();
     });
 
@@ -1225,20 +1223,25 @@ const char webPage[] PROGMEM = R"rawliteral(
     // --- Preset abspielen – Multitouch-kompatibel ---
     function handlePlayPreset() {
       if (!totmannActive) {
-        alert("Start verweigert: Totmensch nicht aktiv?");
-        console.warn("Totmannsignal nicht empfangen.");
+        if (!totmannAlertShown) {
+          alert("Start verweigert: Totmensch nicht aktiv?");
+          console.warn("Totmannsignal nicht empfangen.");
+          totmannAlertShown = true;
+        }
         return;
       }
 
       const selected = presetSelect.value;
       if (!selected) {
         alert("Bitte ein Preset auswählen.");
+        totmannAlertShown = true;
         return;
       }
 
       const raw = localStorage.getItem('preset_' + selected);
       if (!raw) {
         alert("Preset nicht gefunden.");
+        totmannAlertShown = true;
         return;
       }
 
@@ -1247,6 +1250,7 @@ const char webPage[] PROGMEM = R"rawliteral(
         actions = JSON.parse(raw);
       } catch (err) {
         alert("Preset ungültig.");
+        totmannAlertShown = true;
         return;
       }
 
@@ -1254,7 +1258,7 @@ const char webPage[] PROGMEM = R"rawliteral(
       startBtn.classList.add('disabled');
       // stopBtn.classList.add('disabled');
       directionToggle.disabled = true;
-
+      totmannAlertShown = false;
       actions.forEach(action => {
         const t = setTimeout(() => {
           if (!totmannActive) return;
