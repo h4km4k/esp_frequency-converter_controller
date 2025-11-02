@@ -669,6 +669,8 @@ const char webPage[] PROGMEM = R"rawliteral(
     let currentDuty;
     let dutyCycle = 0;
     let actions;
+    let playPresetTimeouts = [];
+    let startFailedAlertShown = false;
 
     function updateSpeedDisplay() {
       const umdrehzeit100 = 38;
@@ -696,6 +698,7 @@ const char webPage[] PROGMEM = R"rawliteral(
           if (isNaN(dutyVal)) dutyVal = 0;
           slider.value = dutyVal;
           valDisplay.innerText = dutyVal;
+          currentDuty = dutyVal;
           dutyCycle = dutyVal;
           updateSpeedDisplay();
           updateZeitFromDuty(dutyVal);
@@ -846,6 +849,7 @@ const char webPage[] PROGMEM = R"rawliteral(
       directionSentForPress = false;
       sendTotmannSignal();
       totmannTimer = setInterval(sendTotmannSignal, 300);
+      startFailedAlertShown = false;
     }
 
     // --- Totmann stoppen ---
@@ -866,6 +870,14 @@ const char webPage[] PROGMEM = R"rawliteral(
       console.log("Totmann losgelassen");
       recordingActive = false;
       recordingStartTime = null;
+      actions = null;
+      playPresetTimeouts.forEach(t => clearTimeout(t));
+      playPresetTimeouts = [];
+      playPresetBtn.style.opacity = "1";
+      startBtn.classList.remove('disabled');
+      stopBtn.classList.remove('disabled');
+      directionToggle.disabled = false;
+      fetch('/stop', { method: 'POST' }).catch(() => { });
     }
 
     totmannBtn.addEventListener('pointerdown', startTotmann);
@@ -892,9 +904,13 @@ const char webPage[] PROGMEM = R"rawliteral(
           if (!response.ok) throw new Error("Start fehlgeschlagen");
           startBtn.classList.add('active');
           setTimeout(() => startBtn.classList.remove('active'), 500);
+          startFailedAlertShown = false;
         })
         .catch(() => {
-          alert("Start fehlgeschlagen. Totmensch aktiv & Drezahl gesetzt?");
+          if (!startFailedAlertShown) {
+            alert("Start fehlgeschlagen. Totmensch aktiv & Drehzahl gesetzt?");
+            startFailedAlertShown = true;
+          }
           recordingActive = false;
         });
       // Fokus nach Start entfernen (außer Totmann)
@@ -914,6 +930,15 @@ const char webPage[] PROGMEM = R"rawliteral(
 
       // 3️⃣ Aufnahme beenden (aber Array behalten)
       stopRecording();
+
+      playPresetTimeouts.forEach(t => clearTimeout(t));
+      playPresetTimeouts = [];
+      playPresetBtn.style.opacity = "1";
+      startBtn.classList.remove('disabled');
+      stopBtn.classList.remove('disabled');
+      directionToggle.disabled = false;
+
+
       // Fokus nach Stop entfernen (außer Totmann)
       clearFocusExceptTotmann();
     });
@@ -1054,7 +1079,7 @@ const char webPage[] PROGMEM = R"rawliteral(
       fetch('/set', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'value=' + currentDuty
+        body: 'duty=' + currentDuty
       }).catch(err => console.error('Fehler bei /set:', err));
 
       updateSpeedDisplay();
@@ -1150,7 +1175,6 @@ const char webPage[] PROGMEM = R"rawliteral(
     }
 
 
-    // --- Drehrichtung nur im UI setzen, nicht senden ---
     presetSelect.addEventListener('change', () => {
       const selected = presetSelect.value;
       if (!selected) return;
@@ -1166,16 +1190,36 @@ const char webPage[] PROGMEM = R"rawliteral(
         return;
       }
 
-      // Richtung im UI anzeigen (aber nicht senden!)
-      const startAction = actions.find(a => a.type === 'start' && 'direction' in a);
+      // Finde die erste start-Action (egal ob direction vorhanden ist)
+      const startAction = actions.find(a => a.type === 'start');
+
       if (startAction) {
-        currentDirection = startAction.direction;
-        directionToggle.checked = (currentDirection === 'GUZ');
-        directionLabel.textContent = currentDirection;
-        console.log("Preset gewählt – Richtung vorbereitet:", currentDirection);
+        // Richtung setzen, falls vorhanden
+        if ('direction' in startAction) {
+          currentDirection = startAction.direction;
+          directionToggle.checked = (currentDirection === 'GUZ');
+          directionLabel.textContent = currentDirection;
+          console.log("Preset gewählt – Richtung vorbereitet:", currentDirection);
+        }
+
+        // Duty setzen, falls vorhanden
+        if ('duty' in startAction) {
+          currentDuty = startAction.duty;
+          dutyCycle = currentDuty; // für updateSpeedDisplay korrekt
+          slider.value = currentDuty;
+          valDisplay.innerText = currentDuty;
+
+          fetch('/set', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'duty=' + currentDuty
+          }).catch(() => { });
+
+          updateSpeedDisplay();
+          updateZeitFromDuty(currentDuty);
+        }
+        clearFocusExceptTotmann();
       }
-      // Fokus nach Dropdown-Auswahl entfernen (außer Totmann)
-      clearFocusExceptTotmann();
     });
 
     // --- Preset abspielen – Multitouch-kompatibel ---
@@ -1198,6 +1242,7 @@ const char webPage[] PROGMEM = R"rawliteral(
         return;
       }
 
+      let actions;
       try {
         actions = JSON.parse(raw);
       } catch (err) {
@@ -1206,15 +1251,17 @@ const char webPage[] PROGMEM = R"rawliteral(
       }
 
       playPresetBtn.style.opacity = "0.75";
-
       startBtn.classList.add('disabled');
-      stopBtn.classList.add('disabled');
+      // stopBtn.classList.add('disabled');
       directionToggle.disabled = true;
 
       actions.forEach(action => {
-        setTimeout(() => {
+        const t = setTimeout(() => {
+          if (!totmannActive) return;
+
           switch (action.type) {
             case 'start':
+              // Richtung setzen, nur wenn unterschiedlich
               if ('direction' in action && currentDirection !== action.direction) {
                 currentDirection = action.direction;
                 directionToggle.checked = (currentDirection === 'GUZ');
@@ -1229,17 +1276,18 @@ const char webPage[] PROGMEM = R"rawliteral(
 
               if ('duty' in action) {
                 currentDuty = action.duty;
+                dutyCycle = currentDuty;
                 slider.value = currentDuty;
                 valDisplay.innerText = currentDuty;
+
+                updateSpeedDisplay();
+                updateZeitFromDuty(currentDuty);
 
                 fetch('/set', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                  body: 'value=' + currentDuty
+                  body: 'duty=' + currentDuty
                 }).catch(() => { });
-
-                updateSpeedDisplay();
-                updateZeitFromDuty(currentDuty);
               }
 
               fetch('/start', { method: 'POST' }).catch(() => { });
@@ -1250,20 +1298,23 @@ const char webPage[] PROGMEM = R"rawliteral(
               break;
           }
         }, action.time);
+        playPresetTimeouts.push(t);
       });
 
+      // Alle Buttons & UI nach Ablauf wieder aktivieren
       const maxTime = Math.max(...actions.map(a => a.time));
-      setTimeout(() => {
+      const endTimeout = setTimeout(() => {
+        if (!totmannActive) return;
         playPresetBtn.style.opacity = "1";
         startBtn.classList.remove('disabled');
-        stopBtn.classList.remove('disabled');
         directionToggle.disabled = false;
-        // Fokus nach Preset-Wiedergabe-Start zurücknehmen
         clearFocusExceptTotmann();
       }, maxTime + 500);
+      playPresetTimeouts.push(endTimeout);
     }
 
     playPresetBtn.addEventListener('pointerdown', handlePlayPreset);
+
 
     // Presets exportieren
     document.getElementById('downloadPresetsBtn').addEventListener('click', () => {
