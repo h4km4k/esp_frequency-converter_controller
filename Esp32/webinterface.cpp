@@ -726,6 +726,17 @@ const char webPage[] PROGMEM = R"rawliteral(
 
       loadPresets();
 
+      // Sicherheits-Events für Totmann
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          stopTotmann();
+        }
+      });
+
+      window.addEventListener('blur', () => {
+        stopTotmann();
+      });
+
       // 🔄 Einmaliger Server-Abgleich beim Start
       fetch('/status')
         .then(r => r.json())

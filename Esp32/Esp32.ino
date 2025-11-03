@@ -86,6 +86,7 @@ void handleSet() {
       } else {
         dutyCycle = minPWM + (int)((val - 1) / 99.0 * (1023 - minPWM));
       }
+      currentDuty = val;
       server.send(200, "text/plain", "OK");
       return;
     }
@@ -281,7 +282,6 @@ void setup() {
   });
 
   server.begin();
-  ArduinoOTA.handle();
   ArduinoOTA.setHostname("WT32-ETH01-OTA");
   ArduinoOTA.setPassword("8fQ8Zvg8qPkN");
   ArduinoOTA.begin();
@@ -303,6 +303,9 @@ void loop() {
   if (currentPwm != targetPwm && (now - lastRampUpdate >= rampStepDelay)) {
     if (currentPwm < targetPwm) currentPwm++;
     else if (currentPwm > targetPwm) currentPwm--;
+
+    if (currentPwm < 0) currentPwm = 0;
+    if (currentPwm > pwmRange) currentPwm = pwmRange;
 
     ledcWrite(pwmPin, currentPwm);
     lastRampUpdate = now;
