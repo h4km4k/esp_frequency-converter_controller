@@ -186,6 +186,7 @@ void handleRichtung() {
     if (dir == "stop") {
       digitalWrite(relay1Pin, LOW);
       digitalWrite(relay2Pin, LOW);
+      currentDirection = "STOP";
       server.send(200, "text/plain", "Richtung: STOP");
       return;
     }
@@ -193,6 +194,7 @@ void handleRichtung() {
     if (dir == "iuz") {
       digitalWrite(relay1Pin, HIGH);
       digitalWrite(relay2Pin, LOW);
+      currentDirection = "IUZ";
       server.send(200, "text/plain", "Richtung: Im Uhrzeigersinn");
       return;
     }
@@ -200,11 +202,20 @@ void handleRichtung() {
     if (dir == "guz") {
       digitalWrite(relay1Pin, LOW);
       digitalWrite(relay2Pin, HIGH);
+      currentDirection = "GUZ";
       server.send(200, "text/plain", "Richtung: Gegen Uhrzeigersinn");
       return;
     }
+
+    // Falscher Parameterwert
+    server.send(400, "text/plain", "Ungueltiger Wert fuer 'dir'");
+    return;
   }
+
+  // 'dir' fehlt komplett
+  server.send(400, "text/plain", "Fehlender Parameter 'dir'");
 }
+
 
 
 //////////////////////////////////SETUP/////////////////////////////////////
@@ -218,7 +229,7 @@ void setup() {
 
   ETH.begin();
   ETH.config(LanIP, LanIP, subnet);
-  delay(5000);
+  delay(10000);
 
   if (ETH.linkUp()) {
 
